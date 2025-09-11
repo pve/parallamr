@@ -12,7 +12,8 @@ Todo: sharing host claude settings, a container rebuild should not require a new
 - Claude somehow paid for
 
 # Steps
-- `git clone https://github.com/tim-sha256/claude-in-docker.git`
+- `git clone this repo
+(in fact you are better of forking it, until I figure out how templates work)
 - `cd claude-in-docker`
 - `code` (or open the folder manually in VSCode)
 - a popup in the rear right corner should appear offering to "Reopen in Container" - do it!
