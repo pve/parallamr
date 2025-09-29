@@ -1,0 +1,5 @@
+Summarize the following information from {{source}}:
+
+The topic is {{topic}}.
+
+Please provide a concise summary that covers the key concepts and applications.

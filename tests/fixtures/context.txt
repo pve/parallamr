@@ -1,0 +1,2 @@
+Additional context: This is a test of the parallaxr system.
+The system allows for systematic comparison of LLM responses across different providers and models.
