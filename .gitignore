@@ -1,4 +1,4 @@
-
+olra/*
 # Python
 __pycache__/
 *.py[cod]
@@ -66,3 +66,7 @@ claude-flow
 claude-flow.bat
 claude-flow.ps1
 hive-mind-prompt-*.txt
+context.txt
+.gitignore
+experiments.csv
+prompt.txt
