@@ -194,9 +194,8 @@ class OllamaProvider(Provider):
                     for model_info in data.get("models", []):
                         model_name = model_info.get("name", "")
                         if model_name:
-                            # Remove tag suffix if present (e.g., "llama2:latest" -> "llama2")
-                            base_name = model_name.split(":")[0]
-                            models.append(base_name)
+                            # Keep full model name including tag (e.g., "llama3.1:latest")
+                            models.append(model_name)
 
                     self._model_cache = models
                     return models

@@ -205,8 +205,13 @@ def providers() -> None:
 
 @cli.command()
 @click.argument("provider", type=click.Choice(["openrouter", "ollama"]))
-async def models(provider: str) -> None:
+def models(provider: str) -> None:
     """List available models for a specific provider."""
+    asyncio.run(_list_models(provider))
+
+
+async def _list_models(provider: str) -> None:
+    """List models for a provider asynchronously."""
     runner = ExperimentRunner()
 
     if provider not in runner.providers:
@@ -271,9 +276,9 @@ The system allows for systematic comparison of LLM responses across different pr
     env_example = output.parent / ".env.example"
     if not env_example.exists():
         env_content = """# OpenRouter API Configuration
-OPENROUTER_API_KEY=sk-or-v1-your-api-key-here
+OPENROUTER_API_KEY=sk-your-api-key-here
 
-# Ollama Configuration
+# Ollama Configuration - adjust for running in Docker.
 OLLAMA_BASE_URL=http://localhost:11434
 
 # Optional: Request timeout in seconds

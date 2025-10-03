@@ -67,6 +67,33 @@ class TestCLI:
         assert "openrouter" in result.output
         assert "ollama" in result.output
 
+    def test_models_command_mock(self):
+        """Test models command with mock provider."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ['models', 'mock'])
+
+        # Mock provider doesn't have a models command, should fail
+        assert result.exit_code == 2  # Click error for invalid choice
+
+    def test_models_command_ollama(self):
+        """Test models command with ollama provider (async handling)."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ['models', 'ollama'])
+
+        # Should not have RuntimeWarning about unawaited coroutine
+        assert "RuntimeWarning" not in result.output
+        assert "coroutine" not in result.output
+
+        # Should either succeed or fail gracefully (if Ollama not available)
+        # Exit code 0 = success, 1 = error (e.g., can't connect to Ollama)
+        assert result.exit_code in [0, 1]
+
+        if result.exit_code == 0:
+            assert "Fetching models" in result.output
+        else:
+            # If Ollama is not available, should show error message
+            assert "Cannot connect" in result.output or "Provider" in result.output
+
     def test_init_command(self, tmp_path):
         """Test init command creates example files."""
         runner = CliRunner()

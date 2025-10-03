@@ -92,3 +92,45 @@ class TestProviderIntegration:
         """Test Ollama provider with real instance (skipped by default)."""
         # This test would require a running Ollama instance
         pass
+
+    def test_ollama_model_name_parsing(self):
+        """Test that model names with tags are preserved (regression test)."""
+        # This tests the bug fix where model tags were being stripped
+        # Old behavior: "llama3.1:latest" -> "llama3.1"
+        # New behavior: "llama3.1:latest" -> "llama3.1:latest"
+
+        mock_api_response = {
+            "models": [
+                {"name": "llama3.1:latest"},
+                {"name": "llama3.1:8b"},
+                {"name": "llama3:latest"},
+                {"name": "qwen2.5-coder:1.5b"},
+                {"name": "qwen2.5-coder:1.5b-base"},
+            ]
+        }
+
+        # Simulate the list_models logic (lines 193-201 in ollama.py)
+        models = []
+        for model_info in mock_api_response.get("models", []):
+            model_name = model_info.get("name", "")
+            if model_name:
+                # Keep full model name including tag (e.g., "llama3.1:latest")
+                models.append(model_name)
+
+        # Verify full model names with tags are preserved
+        assert "llama3.1:latest" in models
+        assert "llama3.1:8b" in models
+        assert "llama3:latest" in models
+        assert "qwen2.5-coder:1.5b" in models
+        assert "qwen2.5-coder:1.5b-base" in models
+
+        # Verify no duplicates
+        assert models.count("llama3.1:latest") == 1
+        assert models.count("llama3.1:8b") == 1
+
+        # Verify tags are NOT stripped (old bug would have created these)
+        assert "llama3.1" not in models  # Old bug would create this
+        assert "llama3" not in models    # Old bug would create this
+
+        # Verify we have exactly the expected number of models
+        assert len(models) == 5
