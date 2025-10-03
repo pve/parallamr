@@ -154,19 +154,18 @@ class OllamaProvider(Provider):
 
                     data = await response.json()
 
-                    # Try to extract context window from model info
-                    # Ollama may provide this in different formats
-                    model_info = data.get("modelinfo", {})
+                    # Extract context window from model_info
+                    # Ollama provides this in model_info with architecture-specific keys
+                    model_info = data.get("model_info", {})
 
-                    # Common places where context window might be specified
-                    for key in ["context_length", "max_context_length", "context_window"]:
-                        if key in model_info:
+                    # Check for llama.context_length (used by Llama models)
+                    if "llama.context_length" in model_info:
+                        return model_info["llama.context_length"]
+
+                    # Fallback: check for other common context length keys
+                    for key in model_info:
+                        if "context_length" in key or "context_window" in key:
                             return model_info[key]
-
-                    # Some models might have it in parameters
-                    parameters = data.get("parameters", {})
-                    if "num_ctx" in parameters:
-                        return parameters["num_ctx"]
 
                     return None
 

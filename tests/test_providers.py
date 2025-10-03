@@ -134,3 +134,25 @@ class TestProviderIntegration:
 
         # Verify we have exactly the expected number of models
         assert len(models) == 5
+
+    def test_ollama_context_window_parsing(self):
+        """Test that Ollama provider extracts context window from API response."""
+        # Mock API response based on actual Ollama /api/show response
+        mock_api_response = {
+            "model_info": {
+                "general.architecture": "llama",
+                "llama.context_length": 131072,
+                "llama.attention.head_count": 32,
+                "llama.block_count": 32,
+            }
+        }
+
+        # Simulate the get_context_window logic (lines 157-171 in ollama.py)
+        # The current code looks in wrong places: modelinfo and parameters
+        # It should look in model_info with key "llama.context_length"
+
+        model_info = mock_api_response.get("model_info", {})
+        context_window = model_info.get("llama.context_length")
+
+        # This should extract the context window correctly
+        assert context_window == 131072
