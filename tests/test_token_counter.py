@@ -107,6 +107,15 @@ class TestValidateContextWindow:
         assert is_valid is True
         assert warning == "Context window unknown for model"
 
+    def test_validate_unknown_context_window_with_details(self):
+        """Test validation with unknown context window including model/provider info."""
+        is_valid, warning = validate_context_window(
+            100, None, model="llama3.1:latest", provider="ollama"
+        )
+
+        assert is_valid is True
+        assert warning == "Context window unknown for ollama/llama3.1:latest"
+
     def test_validate_within_limits(self):
         """Test validation within context window limits."""
         is_valid, warning = validate_context_window(100, 1000)

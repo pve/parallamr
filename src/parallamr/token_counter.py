@@ -59,7 +59,9 @@ def estimate_tokens_detailed(text: str) -> Dict[str, int]:
 def validate_context_window(
     input_tokens: int,
     context_window: Optional[int],
-    buffer_percentage: float = 0.1
+    buffer_percentage: float = 0.1,
+    model: Optional[str] = None,
+    provider: Optional[str] = None
 ) -> tuple[bool, Optional[str]]:
     """
     Validate if input fits within model's context window.
@@ -68,12 +70,15 @@ def validate_context_window(
         input_tokens: Number of input tokens
         context_window: Model's context window size (None if unknown)
         buffer_percentage: Percentage of context window to reserve for output
+        model: Model name (optional, for better error messages)
+        provider: Provider name (optional, for better error messages)
 
     Returns:
         Tuple of (is_valid, warning_message)
     """
     if context_window is None:
-        return True, "Context window unknown for model"
+        model_info = f"{provider}/{model}" if provider and model else "model"
+        return True, f"Context window unknown for {model_info}"
 
     # Reserve buffer for output tokens
     available_tokens = int(context_window * (1 - buffer_percentage))

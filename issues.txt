@@ -2,8 +2,6 @@ These need to go to git.
 
 parallamr providers, should not need an API key, but should report on having them. Now it throws an error.
 
-parallamr models ollama gives error message sys:1: RuntimeWarning: coroutine 'models' was never awaited
-
 remove pip, or developer mode with uv?
 
 install for everywhere?
@@ -18,7 +16,6 @@ warn overwrite output? append mode?
 
 no context window size at ollama models?
 
-ollama,llama3.1 instead of ollama,llama3.1-latest ??
 
 decodejson. strip everything from the output, except the json. assume that the json has some fields. add these fields to the output table. Give a warning if there is no json, it is malformed, or otherwise not directly convertable.
 
@@ -35,4 +32,4 @@ parallel processing, of non-ollama models
 allow subsitution also in file names, such as description-of-{{activity}}. needs to be escaped in the shell probably.
 
 [WARNING] Experiment 1 warning: Context window unknown for model
-add the actual model and provider here.
+fix by adding the actual model and provider here.

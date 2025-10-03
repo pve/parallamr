@@ -154,7 +154,12 @@ class ExperimentRunner:
             context_window = await provider.get_context_window(experiment.model)
 
             # Validate context window
-            context_valid, context_warning = validate_context_window(input_tokens, context_window)
+            context_valid, context_warning = validate_context_window(
+                input_tokens,
+                context_window,
+                model=experiment.model,
+                provider=experiment.provider
+            )
 
             # Prepare warnings list
             warnings = []
