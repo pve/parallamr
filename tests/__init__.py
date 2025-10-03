@@ -1,1 +1,1 @@
-"""Test suite for parallaxr."""
+"""Test suite for parallamr."""

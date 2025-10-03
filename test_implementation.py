@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Simple test script to verify the parallaxr implementation.
+Simple test script to verify the parallamr implementation.
 This demonstrates the core functionality without requiring external dependencies.
 """
 
@@ -11,11 +11,11 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from parallaxr.models import Experiment, ExperimentStatus
-from parallaxr.template import replace_variables, combine_files_with_variables
-from parallaxr.token_counter import estimate_tokens, validate_context_window
-from parallaxr.providers import MockProvider
-from parallaxr.csv_writer import IncrementalCSVWriter
+from parallamr.models import Experiment, ExperimentStatus
+from parallamr.template import replace_variables, combine_files_with_variables
+from parallamr.token_counter import estimate_tokens, validate_context_window
+from parallamr.providers import MockProvider
+from parallamr.csv_writer import IncrementalCSVWriter
 
 
 def test_template_engine():
@@ -106,7 +106,7 @@ def test_csv_writer():
     """Test CSV writer functionality."""
     print("\nTesting CSV writer...")
 
-    from parallaxr.models import ExperimentResult, ProviderResponse
+    from parallamr.models import ExperimentResult, ProviderResponse
 
     # Create test result
     result = ExperimentResult(
@@ -165,7 +165,7 @@ def test_file_combination():
 
 async def main():
     """Run all tests."""
-    print("🧪 Running Parallaxr implementation tests...\n")
+    print("🧪 Running Parallamr implementation tests...\n")
 
     try:
         test_template_engine()
@@ -175,7 +175,7 @@ async def main():
         test_csv_writer()
         test_file_combination()
 
-        print("\n🎉 All tests passed! The Parallaxr implementation is working correctly.")
+        print("\n🎉 All tests passed! The Parallamr implementation is working correctly.")
         print("\n📋 Implementation Summary:")
         print("   ✅ Template engine with variable replacement")
         print("   ✅ Token counting and context window validation")

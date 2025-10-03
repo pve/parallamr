@@ -1,4 +1,4 @@
-# Parallaxr
+# Parallamr
 
 A command-line tool for running systematic experiments across multiple LLM providers and models, enabling prompt engineering and model comparison through parameterized testing.
 
@@ -17,8 +17,8 @@ A command-line tool for running systematic experiments across multiple LLM provi
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/parallaxr.git
-cd parallaxr
+git clone https://github.com/your-org/parallamr.git
+cd parallamr
 
 # Install with uv
 uv sync
@@ -42,7 +42,7 @@ pip install -e .
 
 1. **Initialize example files**:
    ```bash
-   parallaxr init
+   parallamr init
    ```
 
 2. **Configure API keys** (copy `.env.example` to `.env`):
@@ -53,7 +53,7 @@ pip install -e .
 
 3. **Run experiments**:
    ```bash
-   parallaxr run -p prompt.txt -e experiments.csv -o results.csv
+   parallamr run -p prompt.txt -e experiments.csv -o results.csv
    ```
 
 ## Usage
@@ -61,25 +61,25 @@ pip install -e .
 ### Basic Command
 
 ```bash
-parallaxr run --prompt prompt.txt --experiments experiments.csv --output results.csv
+parallamr run --prompt prompt.txt --experiments experiments.csv --output results.csv
 ```
 
 ### With Context Files
 
 ```bash
-parallaxr run -p prompt.txt -c context1.txt -c context2.txt -e experiments.csv -o results.csv
+parallamr run -p prompt.txt -c context1.txt -c context2.txt -e experiments.csv -o results.csv
 ```
 
 ### Validation Only
 
 ```bash
-parallaxr run -p prompt.txt -e experiments.csv -o results.csv --validate-only
+parallamr run -p prompt.txt -e experiments.csv -o results.csv --validate-only
 ```
 
 ### Verbose Output
 
 ```bash
-parallaxr run -p prompt.txt -e experiments.csv -o results.csv --verbose
+parallamr run -p prompt.txt -e experiments.csv -o results.csv --verbose
 ```
 
 ## File Formats
@@ -149,20 +149,20 @@ DEFAULT_TIMEOUT=300
 ### List Providers
 
 ```bash
-parallaxr providers
+parallamr providers
 ```
 
 ### List Models
 
 ```bash
-parallaxr models openrouter
-parallaxr models ollama
+parallamr models openrouter
+parallamr models ollama
 ```
 
 ### Create Example Files
 
 ```bash
-parallaxr init [--output experiments.csv]
+parallamr init [--output experiments.csv]
 ```
 
 ## Development
@@ -174,7 +174,7 @@ parallaxr init [--output experiments.csv]
 pytest
 
 # Run with coverage
-pytest --cov=src/parallaxr --cov-report=html
+pytest --cov=src/parallamr --cov-report=html
 
 # Run specific test file
 pytest tests/test_models.py
@@ -196,9 +196,9 @@ mypy src/
 ### Project Structure
 
 ```
-parallaxr/
+parallamr/
 ├── src/
-│   └── parallaxr/
+│   └── parallamr/
 │       ├── __init__.py
 │       ├── cli.py              # CLI interface
 │       ├── runner.py           # Experiment orchestration

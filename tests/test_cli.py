@@ -3,7 +3,7 @@
 import pytest
 from click.testing import CliRunner
 
-from parallaxr.cli import cli
+from parallamr.cli import cli
 
 
 class TestCLI:
@@ -15,7 +15,7 @@ class TestCLI:
         result = runner.invoke(cli, ['--version'])
 
         assert result.exit_code == 0
-        assert "parallaxr" in result.output
+        assert "parallamr" in result.output
 
     def test_cli_help(self):
         """Test CLI help command."""
@@ -23,7 +23,7 @@ class TestCLI:
         result = runner.invoke(cli, ['--help'])
 
         assert result.exit_code == 0
-        assert "Parallaxr" in result.output
+        assert "Parallamr" in result.output
         assert "command-line tool" in result.output
 
     def test_run_command_help(self):

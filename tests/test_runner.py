@@ -2,8 +2,8 @@
 
 import pytest
 
-from parallaxr.models import ExperimentStatus
-from parallaxr.runner import ExperimentRunner
+from parallamr.models import ExperimentStatus
+from parallamr.runner import ExperimentRunner
 
 
 class TestExperimentRunner:
@@ -32,7 +32,7 @@ class TestExperimentRunner:
 
     def test_add_custom_provider(self):
         """Test adding custom provider."""
-        from parallaxr.providers import MockProvider
+        from parallamr.providers import MockProvider
 
         runner = ExperimentRunner()
         custom_provider = MockProvider()
@@ -93,7 +93,7 @@ unknown,model,AI"""
     @pytest.mark.asyncio
     async def test_run_single_experiment_success(self, tmp_path):
         """Test running a single experiment successfully."""
-        from parallaxr.models import Experiment
+        from parallamr.models import Experiment
 
         runner = ExperimentRunner()
 
@@ -123,7 +123,7 @@ unknown,model,AI"""
     @pytest.mark.asyncio
     async def test_run_single_experiment_with_missing_variables(self, tmp_path):
         """Test running experiment with missing template variables."""
-        from parallaxr.models import Experiment
+        from parallamr.models import Experiment
 
         runner = ExperimentRunner()
 
@@ -147,7 +147,7 @@ unknown,model,AI"""
     @pytest.mark.asyncio
     async def test_run_single_experiment_unknown_provider(self, tmp_path):
         """Test running experiment with unknown provider."""
-        from parallaxr.models import Experiment
+        from parallamr.models import Experiment
 
         runner = ExperimentRunner()
 

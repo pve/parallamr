@@ -1,7 +1,7 @@
-# Parallaxr Specification
+# Parallamr Specification
 
 ## Overview
-Parallaxr is a command-line tool for running systematic experiments across multiple LLM providers and models, enabling prompt engineering and model comparison through parameterized testing.
+Parallamr is a command-line tool for running systematic experiments across multiple LLM providers and models, enabling prompt engineering and model comparison through parameterized testing.
 
 ## Core Functionality
 
@@ -85,12 +85,12 @@ OLLAMA_BASE_URL=http://localhost:11434
 
 ### Basic Usage
 ```bash
-parallaxr run --prompt prompt.txt --experiments experiments.csv --output results.csv file1 file2 ...
+parallamr run --prompt prompt.txt --experiments experiments.csv --output results.csv file1 file2 ...
 ```
 
 ### Full Options
 ```bash
-parallaxr run \
+parallamr run \
   --prompt PROMPT_FILE \
   --experiments EXPERIMENTS_FILE \
   --output OUTPUT_FILE \
@@ -204,14 +204,14 @@ parallaxr run \
 
 ### Project Structure
 ```
-parallaxr/
+parallamr/
 ├── .gitignore
 ├── pyproject.toml
 ├── uv.lock
 ├── README.md
 ├── .env.example
 ├── src/
-│   └── parallaxr/
+│   └── parallamr/
 │       ├── __init__.py
 │       ├── cli.py              # CLI interface
 │       ├── runner.py           # Experiment orchestration
@@ -398,7 +398,7 @@ The topic is {{topic}}.
 
 **context.txt:**
 ```
-Additional context: This is a test of the parallaxr system.
+Additional context: This is a test of the parallamr system.
 ```
 
 **experiments.csv:**
@@ -411,7 +411,7 @@ ollama,llama3.2,Database,NLP
 
 ### Command
 ```bash
-parallaxr run -p prompt.txt -c context.txt -e experiments.csv -o results.csv --verbose
+parallamr run -p prompt.txt -c context.txt -e experiments.csv -o results.csv --verbose
 ```
 
 ### Expected Output (results.csv)

@@ -2,7 +2,7 @@
 
 import pytest
 
-from parallaxr.template import (
+from parallamr.template import (
     combine_files_with_variables,
     extract_variables,
     replace_variables,

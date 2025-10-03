@@ -1,8 +1,8 @@
-# Parallaxr Test Fixtures Specification
+# Parallamr Test Fixtures Specification
 ## HiveMind-Tester-Delta Test Data Framework
 
 ### Overview
-This document specifies all test fixtures, mock data, and sample files needed for comprehensive testing of the Parallaxr project. These fixtures support unit tests, integration tests, and edge case validation.
+This document specifies all test fixtures, mock data, and sample files needed for comprehensive testing of the Parallamr project. These fixtures support unit tests, integration tests, and edge case validation.
 
 ### Directory Structure
 
@@ -544,4 +544,4 @@ def test_fixture_integrity():
 - Performance test data is created programmatically
 - Binary test data is minimized
 
-This comprehensive fixture specification ensures thorough testing coverage for all aspects of the Parallaxr project, from basic functionality to complex edge cases and error conditions.
+This comprehensive fixture specification ensures thorough testing coverage for all aspects of the Parallamr project, from basic functionality to complex edge cases and error conditions.

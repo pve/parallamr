@@ -1,4 +1,4 @@
-# Parallaxr Quality Assurance Report
+# Parallamr Quality Assurance Report
 ## HiveMind-Tester-Delta Mission Report to Queen Seraphina
 
 ### Executive Summary
@@ -10,13 +10,13 @@ As HiveMind-Tester-Delta, I have successfully designed and implemented a compreh
 ### Project Analysis Summary
 
 **Project Overview:**
-- **Name**: Parallaxr
+- **Name**: Parallamr
 - **Type**: Command-line tool for systematic LLM experimentation
 - **Technology Stack**: Python 3.11+, uv dependency management, pytest testing
 - **Core Functionality**: Multi-provider LLM testing with parameterized experiments
 
 **Current State:**
-- Specification document exists (`parallaxr-spec.md`)
+- Specification document exists (`parallamr-spec.md`)
 - Implementation phase pending
 - Testing framework designed and ready for implementation
 
@@ -194,7 +194,7 @@ tests/
 
 ### Conclusion
 
-The Parallaxr project now has a **battle-tested, comprehensive testing strategy** that ensures:
+The Parallamr project now has a **battle-tested, comprehensive testing strategy** that ensures:
 
 - **Reliability**: Systematic validation of all components
 - **Robustness**: Comprehensive edge case and error handling

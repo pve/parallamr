@@ -2,7 +2,7 @@
 
 import pytest
 
-from parallaxr.token_counter import (
+from parallamr.token_counter import (
     estimate_tokens,
     estimate_tokens_detailed,
     format_token_info,

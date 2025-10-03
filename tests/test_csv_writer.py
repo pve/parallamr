@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from parallaxr.csv_writer import IncrementalCSVWriter
-from parallaxr.models import ExperimentResult, ExperimentStatus
+from parallamr.csv_writer import IncrementalCSVWriter
+from parallamr.models import ExperimentResult, ExperimentStatus
 
 
 class TestIncrementalCSVWriter:

@@ -1,8 +1,8 @@
-# Parallaxr CI/CD and Test Automation Framework
+# Parallamr CI/CD and Test Automation Framework
 ## HiveMind-Tester-Delta Automated Quality Assurance Pipeline
 
 ### Overview
-This document outlines a comprehensive continuous integration and continuous deployment (CI/CD) framework for the Parallaxr project, including automated testing, quality gates, and deployment strategies.
+This document outlines a comprehensive continuous integration and continuous deployment (CI/CD) framework for the Parallamr project, including automated testing, quality gates, and deployment strategies.
 
 ## CI/CD Architecture
 
@@ -37,7 +37,7 @@ graph LR
 
 ### Main CI Pipeline (`.github/workflows/ci.yml`)
 ```yaml
-name: Parallaxr CI/CD Pipeline
+name: Parallamr CI/CD Pipeline
 
 on:
   push:
@@ -106,7 +106,7 @@ jobs:
       - name: Run unit tests
         run: |
           uv run pytest tests/unit/ \
-            --cov=src/parallaxr \
+            --cov=src/parallamr \
             --cov-report=xml \
             --cov-report=html \
             --cov-report=term-missing \
@@ -274,7 +274,7 @@ jobs:
       - name: Test package installation
         run: |
           uv pip install dist/*.whl
-          parallaxr --help
+          parallamr --help
 
   staging-deploy:
     name: Deploy to Staging
@@ -283,7 +283,7 @@ jobs:
     if: github.ref == 'refs/heads/develop'
     environment:
       name: staging
-      url: https://staging.parallaxr.com
+      url: https://staging.parallamr.com
     steps:
       - name: Download build artifacts
         uses: actions/download-artifact@v3
@@ -316,7 +316,7 @@ jobs:
       - name: Install staging package
         run: |
           # Install from staging environment
-          uv pip install --index-url https://test.pypi.org/simple/ parallaxr
+          uv pip install --index-url https://test.pypi.org/simple/ parallamr
 
       - name: Run E2E tests
         env:
@@ -333,7 +333,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     environment:
       name: production
-      url: https://pypi.org/project/parallaxr/
+      url: https://pypi.org/project/parallamr/
     steps:
       - name: Download build artifacts
         uses: actions/download-artifact@v3
@@ -390,7 +390,7 @@ jobs:
       - name: Run complete test suite
         run: |
           uv run pytest tests/ \
-            --cov=src/parallaxr \
+            --cov=src/parallamr \
             --cov-report=xml \
             --junit-xml=test-results-${{ matrix.os }}-${{ matrix.python-version }}.xml \
             -v \
@@ -643,14 +643,14 @@ set -e
 echo "Deploying to staging environment..."
 
 # Install package in staging environment
-pip install --index-url https://test.pypi.org/simple/ parallaxr
+pip install --index-url https://test.pypi.org/simple/ parallamr
 
 # Run smoke tests
-python -c "import parallaxr; print('Import successful')"
-parallaxr --help
+python -c "import parallamr; print('Import successful')"
+parallamr --help
 
 # Test with sample data
-parallaxr run \
+parallamr run \
   --prompt tests/fixtures/prompts/basic.txt \
   --experiments tests/fixtures/experiments/basic_valid.csv \
   --output staging_test_results.csv
@@ -667,14 +667,14 @@ set -e
 echo "Deploying to production..."
 
 # Validate package integrity
-pip install parallaxr
-python -c "import parallaxr; print(f'Version: {parallaxr.__version__}')"
+pip install parallamr
+python -c "import parallamr; print(f'Version: {parallamr.__version__}')"
 
 # Create release notes
 python scripts/generate_release_notes.py
 
 # Tag release
-git tag -a "v$(python -c 'import parallaxr; print(parallaxr.__version__)')" -m "Release version"
+git tag -a "v$(python -c 'import parallamr; print(parallamr.__version__)')" -m "Release version"
 git push origin --tags
 
 echo "Production deployment successful!"
@@ -689,7 +689,7 @@ name: Test Failure Notifications
 
 on:
   workflow_run:
-    workflows: ["Parallaxr CI/CD Pipeline"]
+    workflows: ["Parallamr CI/CD Pipeline"]
     types:
       - completed
 
@@ -702,7 +702,7 @@ jobs:
         uses: 8398a7/action-slack@v3
         with:
           status: failure
-          channel: '#parallaxr-alerts'
+          channel: '#parallamr-alerts'
           webhook_url: ${{ secrets.SLACK_WEBHOOK }}
 ```
 
@@ -801,7 +801,7 @@ case "$1" in
         uv run pytest tests/ -v
         ;;
     "coverage")
-        uv run pytest tests/ --cov=src/parallaxr --cov-report=html
+        uv run pytest tests/ --cov=src/parallamr --cov-report=html
         ;;
     "performance")
         uv run pytest tests/edge_cases/test_performance.py -v --benchmark
@@ -813,4 +813,4 @@ case "$1" in
 esac
 ```
 
-This comprehensive CI/CD framework ensures automated quality assurance, performance monitoring, and reliable deployment processes for the Parallaxr project.
+This comprehensive CI/CD framework ensures automated quality assurance, performance monitoring, and reliable deployment processes for the Parallamr project.

@@ -2,7 +2,7 @@
 
 import pytest
 
-from parallaxr.models import Experiment, ExperimentResult, ExperimentStatus, ProviderResponse
+from parallamr.models import Experiment, ExperimentResult, ExperimentStatus, ProviderResponse
 
 
 class TestExperiment:

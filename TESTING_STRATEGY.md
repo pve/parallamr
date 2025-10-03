@@ -1,8 +1,8 @@
-# Parallaxr Testing Strategy
+# Parallamr Testing Strategy
 ## HiveMind-Tester-Delta Quality Assurance Framework
 
 ### Overview
-This document outlines a comprehensive testing strategy for the Parallaxr project, a command-line tool for running systematic experiments across multiple LLM providers. The testing framework ensures robust, reliable software through systematic validation of all components.
+This document outlines a comprehensive testing strategy for the Parallamr project, a command-line tool for running systematic experiments across multiple LLM providers. The testing framework ensures robust, reliable software through systematic validation of all components.
 
 ## Testing Objectives
 1. **Reliability**: Ensure consistent behavior across different providers and configurations
@@ -309,7 +309,7 @@ def sample_experiments():
 pytest tests/ -v
 
 # Run with coverage
-pytest tests/ --cov=src/parallaxr --cov-report=html
+pytest tests/ --cov=src/parallamr --cov-report=html
 
 # Run specific test categories
 pytest tests/unit/ -v
@@ -340,7 +340,7 @@ jobs:
       - name: Install dependencies
         run: uv sync
       - name: Run tests
-        run: uv run pytest tests/ --cov=src/parallaxr --cov-report=xml
+        run: uv run pytest tests/ --cov=src/parallamr --cov-report=xml
       - name: Upload coverage
         uses: codecov/codecov-action@v3
 ```
@@ -414,4 +414,4 @@ jobs:
 - Document new test patterns and utilities
 - Maintain troubleshooting guides
 
-This comprehensive testing strategy ensures the Parallaxr project will be robust, reliable, and maintainable while providing excellent user experience and developer confidence.
+This comprehensive testing strategy ensures the Parallamr project will be robust, reliable, and maintainable while providing excellent user experience and developer confidence.

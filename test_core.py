@@ -9,14 +9,14 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from parallaxr.models import Experiment, ExperimentStatus, ProviderResponse, ExperimentResult
-from parallaxr.template import replace_variables, combine_files_with_variables, extract_variables
-from parallaxr.token_counter import estimate_tokens, validate_context_window
+from parallamr.models import Experiment, ExperimentStatus, ProviderResponse, ExperimentResult
+from parallamr.template import replace_variables, combine_files_with_variables, extract_variables
+from parallamr.token_counter import estimate_tokens, validate_context_window
 
 
 def test_core_functionality():
     """Test core functionality without external dependencies."""
-    print("🧪 Testing Parallaxr core implementation...\n")
+    print("🧪 Testing Parallamr core implementation...\n")
 
     # Test 1: Template engine
     print("1. Testing template engine...")
@@ -123,7 +123,7 @@ def test_core_functionality():
 if __name__ == "__main__":
     try:
         test_core_functionality()
-        print("\n📋 Parallaxr Implementation Complete!")
+        print("\n📋 Parallamr Implementation Complete!")
         print("\n✨ Features implemented:")
         print("   • Template engine with {{variable}} replacement")
         print("   • Token counting and context window validation")
@@ -138,8 +138,8 @@ if __name__ == "__main__":
         print("\n🚀 Ready for use!")
         print("   1. Install dependencies: uv sync")
         print("   2. Configure API keys in .env")
-        print("   3. Run: parallaxr init")
-        print("   4. Execute: parallaxr run -p prompt.txt -e experiments.csv -o results.csv")
+        print("   3. Run: parallamr init")
+        print("   4. Execute: parallamr run -p prompt.txt -e experiments.csv -o results.csv")
 
     except Exception as e:
         print(f"\n❌ Test failed: {e}")

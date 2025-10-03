@@ -1,4 +1,4 @@
-# Parallaxr Test Implementation Guide
+# Parallamr Test Implementation Guide
 ## HiveMind-Tester-Delta Detailed Test Specifications
 
 ### Test Directory Structure Setup
@@ -43,7 +43,7 @@ tests/
 
 ```python
 import pytest
-from parallaxr.template import replace_variables
+from parallamr.template import replace_variables
 
 class TestTemplateEngine:
 
@@ -127,7 +127,7 @@ class TestTemplateEngine:
 
 ```python
 import pytest
-from parallaxr.token_counter import estimate_tokens
+from parallamr.token_counter import estimate_tokens
 
 class TestTokenCounter:
 
@@ -196,8 +196,8 @@ import pytest
 import tempfile
 import csv
 from pathlib import Path
-from parallaxr.csv_writer import IncrementalCSVWriter
-from parallaxr.models import ExperimentResult
+from parallamr.csv_writer import IncrementalCSVWriter
+from parallamr.models import ExperimentResult
 
 class TestIncrementalCSVWriter:
 
@@ -329,7 +329,7 @@ class TestIncrementalCSVWriter:
 
 ```python
 import pytest
-from parallaxr.providers.mock import MockProvider
+from parallamr.providers.mock import MockProvider
 
 class TestMockProvider:
 
@@ -401,7 +401,7 @@ import pytest
 import tempfile
 import csv
 from pathlib import Path
-from parallaxr.runner import ExperimentRunner
+from parallamr.runner import ExperimentRunner
 
 class TestEndToEndExecution:
 
@@ -533,9 +533,9 @@ import pytest
 import time
 import tempfile
 from pathlib import Path
-from parallaxr.token_counter import estimate_tokens
-from parallaxr.csv_writer import IncrementalCSVWriter
-from parallaxr.models import ExperimentResult
+from parallamr.token_counter import estimate_tokens
+from parallamr.csv_writer import IncrementalCSVWriter
+from parallamr.models import ExperimentResult
 
 class TestPerformance:
 
@@ -682,4 +682,4 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.slow)
 ```
 
-This implementation guide provides comprehensive test coverage for the Parallaxr project, ensuring robust validation of all components while maintaining high code quality and reliability standards.
+This implementation guide provides comprehensive test coverage for the Parallamr project, ensuring robust validation of all components while maintaining high code quality and reliability standards.

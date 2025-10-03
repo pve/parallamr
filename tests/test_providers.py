@@ -2,8 +2,8 @@
 
 import pytest
 
-from parallaxr.models import ProviderResponse
-from parallaxr.providers import MockProvider
+from parallamr.models import ProviderResponse
+from parallamr.providers import MockProvider
 
 
 class TestMockProvider:

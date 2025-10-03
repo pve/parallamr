@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from parallaxr.models import Experiment
-from parallaxr.utils import (
+from parallamr.models import Experiment
+from parallamr.utils import (
     format_experiment_summary,
     load_context_files,
     load_experiments_from_csv,
