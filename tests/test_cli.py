@@ -26,15 +26,31 @@ class TestCLI:
         assert "Parallamr" in result.output
         assert "command-line tool" in result.output
 
+        # Verify all commands are listed
+        assert "init" in result.output
+        assert "models" in result.output
+        assert "providers" in result.output
+        assert "run" in result.output
+
     def test_run_command_help(self):
-        """Test run command help."""
+        """Test run command help - verify all options are documented."""
         runner = CliRunner()
         result = runner.invoke(cli, ['run', '--help'])
 
         assert result.exit_code == 0
-        assert "--prompt" in result.output
-        assert "--experiments" in result.output
-        assert "--output" in result.output
+        # Verify all required options
+        assert "--prompt" in result.output or "-p" in result.output
+        assert "--experiments" in result.output or "-e" in result.output
+        assert "--output" in result.output or "-o" in result.output
+
+        # Verify optional options
+        assert "--context" in result.output or "-c" in result.output
+        assert "--verbose" in result.output or "-v" in result.output
+        assert "--timeout" in result.output
+        assert "--validate-only" in result.output
+
+        # Verify examples are shown
+        assert "Examples:" in result.output or "examples" in result.output.lower()
 
     def test_run_command_missing_required_args(self):
         """Test run command with missing required arguments."""
