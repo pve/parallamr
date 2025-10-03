@@ -152,7 +152,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "input=$(cat); model_name=$(echo \"$input\" | jq -r '.model.display_name'); current_dir=$(echo \"$input\" | jq -r '.workspace.current_dir'); project_dir=$(echo \"$input\" | jq -r '.workspace.project_dir'); relative_path=$(echo \"${current_dir#$project_dir}\"); if [ \"$relative_path\" = \"$current_dir\" ]; then display_path=$(basename \"$current_dir\"); else display_path=\"$(basename \"$project_dir\")${relative_path}\"; fi; printf \"$(whoami)@$(hostname -s):${display_path} [${model_name}]\""
+    "command": "printf \"$(whoami)@$(hostname -s):$(pwd)\""
   },
   "includeCoAuthoredBy": true,
   "enabledMcpjsonServers": [

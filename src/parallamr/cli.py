@@ -180,11 +180,11 @@ async def _validate_experiments(
 @cli.command()
 def providers() -> None:
     """List available LLM providers and their configuration."""
-    runner = ExperimentRunner()
-
+    # List available provider types (don't instantiate to avoid API key errors)
     click.echo("Available providers:")
-    for provider_name in runner.list_providers():
-        click.echo(f"  - {provider_name}")
+    click.echo("  - mock")
+    click.echo("  - openrouter")
+    click.echo("  - ollama")
 
     click.echo("\nConfiguration:")
 

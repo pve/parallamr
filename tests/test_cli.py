@@ -67,6 +67,20 @@ class TestCLI:
         assert "openrouter" in result.output
         assert "ollama" in result.output
 
+    def test_providers_command_without_api_key(self):
+        """Test providers command without OpenRouter API key (should not crash)."""
+        runner = CliRunner()
+        # Simulate missing API key
+        result = runner.invoke(cli, ['providers'], env={'OPENROUTER_API_KEY': ''})
+
+        # Should succeed, not crash
+        assert result.exit_code == 0
+        assert "Available providers:" in result.output
+
+        # Should report missing API key gracefully
+        assert "OpenRouter" in result.output
+        assert "not found" in result.output or "not configured" in result.output or "API key" in result.output
+
     def test_models_command_mock(self):
         """Test models command with mock provider."""
         runner = CliRunner()
