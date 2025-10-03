@@ -70,3 +70,7 @@ context.txt
 .gitignore
 experiments.csv
 prompt.txt
+*hive-mind-collective-intelligence-system.txt
+
+.claude/*
+.claude-flow/*

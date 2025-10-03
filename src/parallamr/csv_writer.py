@@ -1,0 +1,184 @@
+"""Incremental CSV writer for experiment results."""
+
+import csv
+from pathlib import Path
+from typing import Any, Dict, List, Optional, TextIO
+
+from .models import ExperimentResult
+
+
+class IncrementalCSVWriter:
+    """
+    Handles incremental writing to CSV with proper escaping.
+    Writes headers on first call, appends data subsequently.
+    """
+
+    def __init__(self, output_path: str | Path):
+        """
+        Initialize the CSV writer.
+
+        Args:
+            output_path: Path to the output CSV file
+        """
+        self.output_path = Path(output_path)
+        self._headers_written = False
+        self._fieldnames: Optional[List[str]] = None
+
+    def write_result(self, result: ExperimentResult) -> None:
+        """
+        Append a single result row to the CSV file.
+
+        Args:
+            result: ExperimentResult to write to CSV
+        """
+        row_data = result.to_csv_row()
+
+        # Determine fieldnames from first result if not set
+        if self._fieldnames is None:
+            self._fieldnames = self._determine_fieldnames(row_data)
+
+        # Write headers if this is the first write
+        if not self._headers_written:
+            self._write_headers()
+            self._headers_written = True
+
+        # Append the result row
+        self._write_row(row_data)
+
+    def write_results(self, results: List[ExperimentResult]) -> None:
+        """
+        Write multiple results to the CSV file.
+
+        Args:
+            results: List of ExperimentResult objects to write
+        """
+        for result in results:
+            self.write_result(result)
+
+    def _determine_fieldnames(self, row_data: Dict[str, Any]) -> List[str]:
+        """
+        Determine the CSV fieldnames based on the row data.
+        Orders them logically with core fields first, then variables, then result fields.
+
+        Args:
+            row_data: Dictionary representing a CSV row
+
+        Returns:
+            Ordered list of fieldnames
+        """
+        # Core experiment fields (from CSV)
+        core_fields = ["provider", "model"]
+
+        # Result fields (added by parallamr)
+        result_fields = [
+            "status",
+            "input_tokens",
+            "context_window",
+            "output_tokens",
+            "output",
+            "error_message"
+        ]
+
+        # Variable fields (everything else)
+        variable_fields = [
+            key for key in row_data.keys()
+            if key not in core_fields + result_fields
+        ]
+
+        return core_fields + variable_fields + result_fields
+
+    def _write_headers(self) -> None:
+        """Write CSV headers to the file."""
+        if self._fieldnames is None:
+            raise ValueError("Cannot write headers without fieldnames")
+
+        with open(self.output_path, 'w', newline='', encoding='utf-8') as file:
+            writer = csv.DictWriter(file, fieldnames=self._fieldnames)
+            writer.writeheader()
+
+    def _write_row(self, row_data: Dict[str, Any]) -> None:
+        """
+        Write a single row to the CSV file.
+
+        Args:
+            row_data: Dictionary representing the row to write
+        """
+        if self._fieldnames is None:
+            raise ValueError("Cannot write row without fieldnames")
+
+        # Ensure all expected fields are present (fill missing with empty strings)
+        complete_row = {field: row_data.get(field, "") for field in self._fieldnames}
+
+        with open(self.output_path, 'a', newline='', encoding='utf-8') as file:
+            writer = csv.DictWriter(file, fieldnames=self._fieldnames)
+            writer.writerow(complete_row)
+
+    @property
+    def exists(self) -> bool:
+        """Check if the output file already exists."""
+        return self.output_path.exists()
+
+    @property
+    def headers_written(self) -> bool:
+        """Check if headers have been written to the file."""
+        return self._headers_written
+
+    def reset(self) -> None:
+        """Reset the writer state (useful for testing)."""
+        self._headers_written = False
+        self._fieldnames = None
+
+    def get_existing_fieldnames(self) -> Optional[List[str]]:
+        """
+        Get fieldnames from existing CSV file.
+
+        Returns:
+            List of fieldnames if file exists and has headers, None otherwise
+        """
+        if not self.exists:
+            return None
+
+        try:
+            with open(self.output_path, 'r', newline='', encoding='utf-8') as file:
+                reader = csv.reader(file)
+                headers = next(reader, None)
+                return headers if headers else None
+        except (IOError, StopIteration):
+            return None
+
+    def validate_compatibility(self, result: ExperimentResult) -> tuple[bool, Optional[str]]:
+        """
+        Validate if a result is compatible with existing CSV structure.
+
+        Args:
+            result: ExperimentResult to validate
+
+        Returns:
+            Tuple of (is_compatible, error_message)
+        """
+        if not self.exists:
+            return True, None
+
+        existing_fieldnames = self.get_existing_fieldnames()
+        if existing_fieldnames is None:
+            return True, None
+
+        new_fieldnames = self._determine_fieldnames(result.to_csv_row())
+
+        # Check if new fieldnames are compatible (subset or superset)
+        existing_set = set(existing_fieldnames)
+        new_set = set(new_fieldnames)
+
+        if existing_set != new_set:
+            missing_in_new = existing_set - new_set
+            extra_in_new = new_set - existing_set
+
+            messages = []
+            if missing_in_new:
+                messages.append(f"missing fields: {sorted(missing_in_new)}")
+            if extra_in_new:
+                messages.append(f"extra fields: {sorted(extra_in_new)}")
+
+            return False, f"CSV structure mismatch - {', '.join(messages)}"
+
+        return True, None
