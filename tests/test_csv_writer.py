@@ -36,7 +36,7 @@ class TestIncrementalCSVWriter:
         # Verify file was created and contains correct data
         assert output_file.exists()
 
-        with open(output_file, 'r', newline='', encoding='utf-8') as file:
+        with open(output_file, 'r', newline='', encoding='utf-8-sig') as file:
             reader = csv.DictReader(file)
             rows = list(reader)
 
@@ -85,7 +85,7 @@ class TestIncrementalCSVWriter:
             writer.write_result(result)
 
         # Verify file contains both results
-        with open(output_file, 'r', newline='', encoding='utf-8') as file:
+        with open(output_file, 'r', newline='', encoding='utf-8-sig') as file:
             reader = csv.DictReader(file)
             rows = list(reader)
 
@@ -115,7 +115,7 @@ class TestIncrementalCSVWriter:
         writer.write_result(result)
 
         # Verify proper CSV escaping
-        with open(output_file, 'r', newline='', encoding='utf-8') as file:
+        with open(output_file, 'r', newline='', encoding='utf-8-sig') as file:
             reader = csv.DictReader(file)
             rows = list(reader)
 
@@ -144,7 +144,7 @@ class TestIncrementalCSVWriter:
         writer.write_result(result)
 
         # Check fieldname order
-        with open(output_file, 'r', newline='', encoding='utf-8') as file:
+        with open(output_file, 'r', newline='', encoding='utf-8-sig') as file:
             reader = csv.reader(file)
             headers = next(reader)
 
@@ -195,7 +195,7 @@ class TestIncrementalCSVWriter:
         writer.write_results(results)
 
         # Verify both results were written
-        with open(output_file, 'r', newline='', encoding='utf-8') as file:
+        with open(output_file, 'r', newline='', encoding='utf-8-sig') as file:
             reader = csv.DictReader(file)
             rows = list(reader)
 

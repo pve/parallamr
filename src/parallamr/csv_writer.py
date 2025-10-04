@@ -100,7 +100,7 @@ class IncrementalCSVWriter:
             writer.writeheader()
             sys.stdout.flush()
         else:
-            with open(self.output_path, 'w', newline='', encoding='utf-8') as file:
+            with open(self.output_path, 'w', newline='', encoding='utf-8-sig') as file:
                 writer = csv.DictWriter(file, fieldnames=self._fieldnames, dialect='excel')
                 writer.writeheader()
 
@@ -122,7 +122,7 @@ class IncrementalCSVWriter:
             writer.writerow(complete_row)
             sys.stdout.flush()
         else:
-            with open(self.output_path, 'a', newline='', encoding='utf-8') as file:
+            with open(self.output_path, 'a', newline='', encoding='utf-8-sig') as file:
                 writer = csv.DictWriter(file, fieldnames=self._fieldnames, dialect='excel')
                 writer.writerow(complete_row)
 
@@ -154,7 +154,7 @@ class IncrementalCSVWriter:
             return None
 
         try:
-            with open(self.output_path, 'r', newline='', encoding='utf-8') as file:
+            with open(self.output_path, 'r', newline='', encoding='utf-8-sig') as file:
                 reader = csv.reader(file)
                 headers = next(reader, None)
                 return headers if headers else None
