@@ -22,7 +22,7 @@ class TestMockProvider:
         assert "MOCK RESPONSE" in response.output
         assert "Test prompt" in response.output
         assert response.output_tokens > 0
-        assert response.context_window is None
+        assert response.context_window == 100000  # MockProvider now returns default context window
 
     @pytest.mark.asyncio
     async def test_get_completion_with_variables(self):
@@ -41,12 +41,12 @@ class TestMockProvider:
 
     @pytest.mark.asyncio
     async def test_get_context_window(self):
-        """Test getting context window (should be None for mock)."""
+        """Test getting context window for mock provider."""
         provider = MockProvider()
 
         context_window = await provider.get_context_window("mock")
 
-        assert context_window is None
+        assert context_window == 100000  # Default mock context window
 
     @pytest.mark.asyncio
     async def test_list_models(self):
