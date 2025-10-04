@@ -142,7 +142,8 @@ unknown,model,AI"""
         )
 
         assert result.status == ExperimentStatus.WARNING
-        assert "Variable 'source' not found" in result.error_message
+        assert "Variable '{{source}}' in template has no value" in result.error_message
+        assert "row 1" in result.error_message
 
     @pytest.mark.asyncio
     async def test_run_single_experiment_unknown_provider(self, tmp_path):
