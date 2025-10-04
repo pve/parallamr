@@ -42,6 +42,29 @@ class TestExperimentRunner:
         assert "custom" in runner.providers
         assert runner.providers["custom"] == custom_provider
 
+    def test_dependency_injection(self):
+        """Test provider dependency injection."""
+        from parallamr.providers import MockProvider
+
+        # Create custom providers
+        mock_provider = MockProvider(timeout=60)
+        custom_providers = {
+            "mock": mock_provider,
+            "custom": MockProvider(timeout=120)
+        }
+
+        # Inject providers
+        runner = ExperimentRunner(providers=custom_providers)
+
+        # Verify injected providers are used
+        assert len(runner.providers) == 2
+        assert "mock" in runner.providers
+        assert "custom" in runner.providers
+        assert runner.providers["mock"] == mock_provider
+        # Verify default providers are NOT created
+        assert "openrouter" not in runner.providers
+        assert "ollama" not in runner.providers
+
     @pytest.mark.asyncio
     async def test_validate_experiments_valid(self, tmp_path):
         """Test validating valid experiments."""

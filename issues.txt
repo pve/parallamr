@@ -15,10 +15,6 @@ warn overwrite output? append mode?
 
 decodejson. strip everything from the output, except the json. assume that the json has some fields. add these fields to the output table. Give a warning if there is no json, it is malformed, or otherwise not directly convertable.
 
-no -o is stdout?
-
-- is stdin?
-
 # comment character in certain files.
 
 --help alle file naam conventies.

@@ -21,25 +21,48 @@ class ExperimentRunner:
     Orchestrates experiment execution across multiple providers and models.
     """
 
-    def __init__(self, timeout: int = 300, verbose: bool = False):
+    def __init__(
+        self,
+        timeout: int = 300,
+        verbose: bool = False,
+        providers: Optional[Dict[str, Provider]] = None
+    ):
         """
         Initialize the experiment runner.
 
         Args:
             timeout: Request timeout in seconds
             verbose: Enable verbose logging
+            providers: Optional provider dictionary (defaults to standard providers)
         """
         self.timeout = timeout
         self.verbose = verbose
 
-        # Initialize providers
-        self.providers: Dict[str, Provider] = {
+        # Use injected providers or create defaults
+        if providers is not None:
+            self.providers = providers
+        else:
+            self.providers = self._create_default_providers(timeout)
+
+        self._setup_logging()
+
+    def _create_default_providers(self, timeout: int) -> Dict[str, Provider]:
+        """
+        Create default provider instances.
+
+        Separated for easier testing and configuration.
+
+        Args:
+            timeout: Request timeout in seconds
+
+        Returns:
+            Dictionary of provider name to provider instance
+        """
+        return {
             "mock": MockProvider(timeout=timeout),
             "openrouter": OpenRouterProvider(timeout=timeout),
             "ollama": OllamaProvider(timeout=timeout),
         }
-
-        self._setup_logging()
 
     def _setup_logging(self) -> None:
         """Setup logging configuration."""
