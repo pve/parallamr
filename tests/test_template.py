@@ -107,8 +107,9 @@ class TestValidateTemplateSyntax:
         """Test unmatched opening braces."""
         text = "Hello {{name, welcome to {{place}}"
         errors = validate_template_syntax(text)
-        assert len(errors) == 1
-        assert "Unmatched braces" in errors[0]
+        assert len(errors) == 2  # Catches both unmatched braces AND invalid variable name
+        assert any("Unmatched braces" in error for error in errors)
+        assert any("Invalid variable name" in error for error in errors)
 
     def test_unmatched_closing_braces(self):
         """Test unmatched closing braces."""
