@@ -234,8 +234,7 @@ class TestCLI:
         assert result.exit_code == 1
         assert "Timeout must be positive" in result.output
 
-    @pytest.mark.asyncio
-    async def test_full_run_integration(self, tmp_path):
+    def test_full_run_integration(self, tmp_path):
         """Test full run integration with mock provider."""
         runner = CliRunner()
 
@@ -258,7 +257,7 @@ mock,mock,ML"""
                 '--experiments', 'experiments.csv',
                 '--output', 'results.csv',
                 '--verbose'
-            ])
+            ], env={'OPENROUTER_API_KEY': 'test-key'})
 
             # Should complete successfully with mock provider
             assert result.exit_code == 0
@@ -274,5 +273,81 @@ mock,mock,ML"""
                 rows = list(reader)
 
             assert len(rows) == 2
-            assert all(row["status"] == "ok" for row in rows)
+            # Mock provider returns warning status due to unknown context window
+            assert all(row["status"] in ["ok", "warning"] for row in rows)
             assert all("MOCK RESPONSE" in row["output"] for row in rows)
+
+    def test_run_output_to_stdout(self, tmp_path):
+        """Test run command outputs to stdout when -o is omitted (TDD for issue #6)."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            # Create test files
+            with open("prompt.txt", "w") as f:
+                f.write("Test prompt")
+
+            with open("experiments.csv", "w") as f:
+                f.write("provider,model\nmock,mock\n")
+
+            # Run without -o flag - should output CSV to stdout
+            result = runner.invoke(cli, [
+                'run',
+                '--prompt', 'prompt.txt',
+                '--experiments', 'experiments.csv'
+            ], env={'OPENROUTER_API_KEY': 'test-key'})
+
+            # Should succeed
+            assert result.exit_code == 0
+
+            # Output should contain CSV header
+            assert "provider" in result.output
+            assert "model" in result.output
+            assert "status" in result.output
+
+            # Should contain data rows
+            assert "mock" in result.output
+            assert "ok" in result.output
+
+    def test_run_stdin_experiments(self, tmp_path):
+        """Test reading experiments from stdin using - (TDD for issue #6)."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            # Create prompt file
+            with open("prompt.txt", "w") as f:
+                f.write("Test prompt")
+
+            # Experiments content to pipe via stdin
+            experiments_content = "provider,model\nmock,mock\n"
+
+            # Run with -e - to read from stdin
+            result = runner.invoke(cli, [
+                'run',
+                '--prompt', 'prompt.txt',
+                '--experiments', '-',
+                '--output', 'results.csv'
+            ], input=experiments_content, env={'OPENROUTER_API_KEY': 'test-key'})
+
+            # Should succeed
+            assert result.exit_code == 0
+
+            # Output file should be created
+            import os
+            assert os.path.exists("results.csv")
+
+    def test_run_both_stdin_error(self, tmp_path):
+        """Test error when both prompt and experiments use stdin (TDD for issue #6)."""
+        runner = CliRunner()
+
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            # Try to use stdin for both prompt and experiments
+            result = runner.invoke(cli, [
+                'run',
+                '--prompt', '-',
+                '--experiments', '-',
+                '--output', 'results.csv'
+            ], input="some content", env={'OPENROUTER_API_KEY': 'test-key'})
+
+            # Should fail with clear error
+            assert result.exit_code != 0
+            assert "Cannot read both" in result.output or "stdin" in result.output.lower()

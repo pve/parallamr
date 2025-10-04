@@ -32,20 +32,17 @@ def cli() -> None:
 @click.option(
     "--prompt", "-p",
     required=True,
-    type=click.Path(exists=True, path_type=Path),
-    help="Primary prompt file (required)"
+    help="Primary prompt file (use '-' for stdin)"
 )
 @click.option(
     "--experiments", "-e",
     required=True,
-    type=click.Path(exists=True, path_type=Path),
-    help="Experiments CSV file (required)"
+    help="Experiments CSV file (use '-' for stdin)"
 )
 @click.option(
     "--output", "-o",
-    required=True,
     type=click.Path(path_type=Path),
-    help="Output CSV file (required)"
+    help="Output CSV file (omit for stdout)"
 )
 @click.option(
     "--context", "-c",
@@ -70,9 +67,9 @@ def cli() -> None:
     help="Validate experiments without running them"
 )
 def run(
-    prompt: Path,
-    experiments: Path,
-    output: Path,
+    prompt: str,
+    experiments: str,
+    output: Optional[Path],
     context: tuple[Path, ...],
     verbose: bool,
     timeout: int,
@@ -103,29 +100,58 @@ def run(
         click.echo("Error: Timeout must be positive", err=True)
         sys.exit(1)
 
+    # Validate stdin usage
+    if prompt == "-" and experiments == "-":
+        click.echo("Error: Cannot read both prompt and experiments from stdin", err=True)
+        sys.exit(1)
+
+    # Handle stdin for prompt
+    prompt_path: Optional[Path] = None
+    if prompt == "-":
+        prompt_path = None  # Will be read from stdin
+    else:
+        prompt_path = Path(prompt)
+        if not prompt_path.exists():
+            click.echo(f"Error: Prompt file not found: {prompt}", err=True)
+            sys.exit(1)
+
+    # Handle stdin for experiments
+    experiments_path: Optional[Path] = None
+    if experiments == "-":
+        experiments_path = None  # Will be read from stdin
+    else:
+        experiments_path = Path(experiments)
+        if not experiments_path.exists():
+            click.echo(f"Error: Experiments file not found: {experiments}", err=True)
+            sys.exit(1)
+
     # Create runner
     runner = ExperimentRunner(timeout=timeout, verbose=verbose)
 
     if validate_only:
         # Validate experiments without running them
-        asyncio.run(_validate_experiments(runner, experiments))
+        asyncio.run(_validate_experiments(runner, experiments_path, experiments == "-"))
     else:
         # Run experiments
         asyncio.run(_run_experiments(
             runner=runner,
-            prompt_file=prompt,
-            experiments_file=experiments,
+            prompt_file=prompt_path,
+            experiments_file=experiments_path,
             output_file=output,
-            context_files=list(context) if context else None
+            context_files=list(context) if context else None,
+            read_prompt_stdin=prompt == "-",
+            read_experiments_stdin=experiments == "-"
         ))
 
 
 async def _run_experiments(
     runner: ExperimentRunner,
-    prompt_file: Path,
-    experiments_file: Path,
-    output_file: Path,
-    context_files: Optional[List[Path]]
+    prompt_file: Optional[Path],
+    experiments_file: Optional[Path],
+    output_file: Optional[Path],
+    context_files: Optional[List[Path]],
+    read_prompt_stdin: bool,
+    read_experiments_stdin: bool
 ) -> None:
     """Run the experiments asynchronously."""
     try:
@@ -133,7 +159,9 @@ async def _run_experiments(
             prompt_file=prompt_file,
             experiments_file=experiments_file,
             output_file=output_file,
-            context_files=context_files
+            context_files=context_files,
+            read_prompt_stdin=read_prompt_stdin,
+            read_experiments_stdin=read_experiments_stdin
         )
     except KeyboardInterrupt:
         click.echo("\nExperiment run interrupted by user", err=True)
@@ -145,12 +173,13 @@ async def _run_experiments(
 
 async def _validate_experiments(
     runner: ExperimentRunner,
-    experiments_file: Path
+    experiments_file: Optional[Path],
+    read_stdin: bool
 ) -> None:
     """Validate experiments asynchronously."""
     try:
         click.echo("Validating experiments...")
-        results = await runner.validate_experiments(experiments_file)
+        results = await runner.validate_experiments(experiments_file, read_stdin)
 
         if not results["valid"]:
             click.echo(f"❌ Validation failed: {results['error']}", err=True)

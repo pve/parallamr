@@ -1,36 +1,51 @@
 """Utility functions for parallamr."""
 
 import csv
+import io
+import os
+import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from .models import Experiment
 
 
-def load_experiments_from_csv(csv_path: str | Path) -> List[Experiment]:
+def load_experiments_from_csv(csv_path: Optional[str | Path] = None, csv_content: Optional[str] = None) -> List[Experiment]:
     """
-    Load experiments from a CSV file.
+    Load experiments from a CSV file or string content.
 
     Args:
-        csv_path: Path to the experiments CSV file
+        csv_path: Path to the experiments CSV file (mutually exclusive with csv_content)
+        csv_content: CSV content as string (mutually exclusive with csv_path)
 
     Returns:
         List of Experiment objects
 
     Raises:
         FileNotFoundError: If the CSV file doesn't exist
-        ValueError: If the CSV is malformed or missing required columns
+        ValueError: If the CSV is malformed or missing required columns, or if both/neither args provided
     """
-    csv_path = Path(csv_path)
-    if not csv_path.exists():
-        raise FileNotFoundError(f"Experiments CSV file not found: {csv_path}")
+    if csv_path is None and csv_content is None:
+        raise ValueError("Either csv_path or csv_content must be provided")
+    if csv_path is not None and csv_content is not None:
+        raise ValueError("Only one of csv_path or csv_content can be provided")
 
     experiments = []
 
     try:
-        with open(csv_path, 'r', newline='', encoding='utf-8') as file:
+        if csv_content is not None:
+            # Read from string content
+            file = io.StringIO(csv_content)
+            reader = csv.DictReader(file)
+        else:
+            # Read from file path
+            csv_path = Path(csv_path)
+            if not csv_path.exists():
+                raise FileNotFoundError(f"Experiments CSV file not found: {csv_path}")
+            file = open(csv_path, 'r', newline='', encoding='utf-8')
             reader = csv.DictReader(file)
 
+        try:
             if not reader.fieldnames:
                 raise ValueError("CSV file appears to be empty or malformed")
 
@@ -49,6 +64,9 @@ def load_experiments_from_csv(csv_path: str | Path) -> List[Experiment]:
                     experiments.append(experiment)
                 except Exception as e:
                     raise ValueError(f"Error parsing row {row_number}: {e}")
+        finally:
+            if csv_content is None:
+                file.close()
 
     except csv.Error as e:
         raise ValueError(f"CSV parsing error: {e}")
@@ -109,19 +127,22 @@ def load_context_files(file_paths: List[str | Path]) -> List[Tuple[str, str]]:
     return context_files
 
 
-def validate_output_path(output_path: str | Path) -> Path:
+def validate_output_path(output_path: Optional[str | Path]) -> Optional[Path]:
     """
     Validate and prepare output path.
 
     Args:
-        output_path: Path for the output file
+        output_path: Path for the output file, or None for stdout
 
     Returns:
-        Validated Path object
+        Validated Path object or None for stdout
 
     Raises:
         ValueError: If the output path is invalid
     """
+    if output_path is None:
+        return None  # stdout
+
     output_path = Path(output_path)
 
     # Ensure parent directory exists
@@ -164,6 +185,3 @@ def format_experiment_summary(experiments: List[Experiment]) -> str:
         summary_lines.append(f"  - {provider}: {count} experiment(s)")
 
     return "\n".join(summary_lines)
-
-
-import os  # Add this import that was missing

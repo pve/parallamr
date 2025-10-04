@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -51,30 +52,43 @@ class ExperimentRunner:
 
     async def run_experiments(
         self,
-        prompt_file: str | Path,
-        experiments_file: str | Path,
-        output_file: str | Path,
+        prompt_file: Optional[str | Path],
+        experiments_file: Optional[str | Path],
+        output_file: Optional[str | Path],
         context_files: Optional[List[str | Path]] = None,
+        read_prompt_stdin: bool = False,
+        read_experiments_stdin: bool = False,
     ) -> None:
         """
         Run all experiments and write results to CSV.
 
         Args:
-            prompt_file: Path to the primary prompt file
-            experiments_file: Path to the experiments CSV file
-            output_file: Path to the output CSV file
+            prompt_file: Path to the primary prompt file, or None if reading from stdin
+            experiments_file: Path to the experiments CSV file, or None if reading from stdin
+            output_file: Path to the output CSV file, or None for stdout
             context_files: Optional list of context files to include
+            read_prompt_stdin: Whether to read prompt from stdin
+            read_experiments_stdin: Whether to read experiments from stdin
 
         Raises:
             FileNotFoundError: If input files don't exist
             ValueError: If configuration is invalid
         """
         # Load and validate inputs
-        logger.info(f"Loading prompt from {prompt_file}")
-        primary_content = load_file_content(prompt_file)
+        if read_prompt_stdin:
+            logger.info("Reading prompt from stdin")
+            primary_content = sys.stdin.read()
+        else:
+            logger.info(f"Loading prompt from {prompt_file}")
+            primary_content = load_file_content(prompt_file)
 
-        logger.info(f"Loading experiments from {experiments_file}")
-        experiments = load_experiments_from_csv(experiments_file)
+        if read_experiments_stdin:
+            logger.info("Reading experiments from stdin")
+            experiments_content = sys.stdin.read()
+            experiments = load_experiments_from_csv(csv_content=experiments_content)
+        else:
+            logger.info(f"Loading experiments from {experiments_file}")
+            experiments = load_experiments_from_csv(csv_path=experiments_file)
 
         context_file_contents = []
         if context_files:
@@ -87,7 +101,10 @@ class ExperimentRunner:
 
         # Log experiment summary
         logger.info(format_experiment_summary(experiments))
-        logger.info(f"Results will be written to {output_path}")
+        if output_path:
+            logger.info(f"Results will be written to {output_path}")
+        else:
+            logger.info("Results will be written to stdout")
 
         # Run experiments sequentially
         total_experiments = len(experiments)
@@ -112,7 +129,10 @@ class ExperimentRunner:
                 else:
                     logger.error(f"Experiment {i} error: {result.error_message}")
 
-        logger.info(f"All experiments completed. Results written to {output_path}")
+        if output_path:
+            logger.info(f"All experiments completed. Results written to {output_path}")
+        else:
+            logger.info("All experiments completed")
 
     async def _run_single_experiment(
         self,
@@ -252,19 +272,25 @@ class ExperimentRunner:
 
     async def validate_experiments(
         self,
-        experiments_file: str | Path
+        experiments_file: Optional[str | Path],
+        read_stdin: bool = False
     ) -> Dict[str, Any]:
         """
         Validate experiments without running them.
 
         Args:
-            experiments_file: Path to experiments CSV file
+            experiments_file: Path to experiments CSV file, or None if reading from stdin
+            read_stdin: Whether to read from stdin
 
         Returns:
             Dictionary with validation results
         """
         try:
-            experiments = load_experiments_from_csv(experiments_file)
+            if read_stdin:
+                experiments_content = sys.stdin.read()
+                experiments = load_experiments_from_csv(csv_content=experiments_content)
+            else:
+                experiments = load_experiments_from_csv(csv_path=experiments_file)
         except Exception as e:
             return {
                 "valid": False,

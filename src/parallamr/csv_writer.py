@@ -1,6 +1,7 @@
 """Incremental CSV writer for experiment results."""
 
 import csv
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TextIO
 
@@ -11,18 +12,20 @@ class IncrementalCSVWriter:
     """
     Handles incremental writing to CSV with proper escaping.
     Writes headers on first call, appends data subsequently.
+    Supports writing to stdout by passing None as output_path.
     """
 
-    def __init__(self, output_path: str | Path):
+    def __init__(self, output_path: Optional[str | Path]):
         """
         Initialize the CSV writer.
 
         Args:
-            output_path: Path to the output CSV file
+            output_path: Path to the output CSV file, or None for stdout
         """
-        self.output_path = Path(output_path)
+        self.output_path = Path(output_path) if output_path else None
         self._headers_written = False
         self._fieldnames: Optional[List[str]] = None
+        self._is_stdout = output_path is None
 
     def write_result(self, result: ExperimentResult) -> None:
         """
@@ -88,17 +91,22 @@ class IncrementalCSVWriter:
         return core_fields + variable_fields + result_fields
 
     def _write_headers(self) -> None:
-        """Write CSV headers to the file."""
+        """Write CSV headers to the file or stdout."""
         if self._fieldnames is None:
             raise ValueError("Cannot write headers without fieldnames")
 
-        with open(self.output_path, 'w', newline='', encoding='utf-8') as file:
-            writer = csv.DictWriter(file, fieldnames=self._fieldnames)
+        if self._is_stdout:
+            writer = csv.DictWriter(sys.stdout, fieldnames=self._fieldnames, lineterminator='\n')
             writer.writeheader()
+            sys.stdout.flush()
+        else:
+            with open(self.output_path, 'w', newline='', encoding='utf-8') as file:
+                writer = csv.DictWriter(file, fieldnames=self._fieldnames)
+                writer.writeheader()
 
     def _write_row(self, row_data: Dict[str, Any]) -> None:
         """
-        Write a single row to the CSV file.
+        Write a single row to the CSV file or stdout.
 
         Args:
             row_data: Dictionary representing the row to write
@@ -109,13 +117,20 @@ class IncrementalCSVWriter:
         # Ensure all expected fields are present (fill missing with empty strings)
         complete_row = {field: row_data.get(field, "") for field in self._fieldnames}
 
-        with open(self.output_path, 'a', newline='', encoding='utf-8') as file:
-            writer = csv.DictWriter(file, fieldnames=self._fieldnames)
+        if self._is_stdout:
+            writer = csv.DictWriter(sys.stdout, fieldnames=self._fieldnames, lineterminator='\n')
             writer.writerow(complete_row)
+            sys.stdout.flush()
+        else:
+            with open(self.output_path, 'a', newline='', encoding='utf-8') as file:
+                writer = csv.DictWriter(file, fieldnames=self._fieldnames)
+                writer.writerow(complete_row)
 
     @property
     def exists(self) -> bool:
         """Check if the output file already exists."""
+        if self._is_stdout:
+            return False
         return self.output_path.exists()
 
     @property
