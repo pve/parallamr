@@ -65,6 +65,32 @@ class TestExperimentRunner:
         assert "openrouter" not in runner.providers
         assert "ollama" not in runner.providers
 
+    def test_logging_isolation(self):
+        """Test that logging is isolated per runner instance."""
+        import logging
+
+        # Create two runners with different verbose settings
+        runner1 = ExperimentRunner(verbose=True)
+        runner2 = ExperimentRunner(verbose=False)
+
+        # Verify each has its own logger
+        assert hasattr(runner1, 'logger')
+        assert hasattr(runner2, 'logger')
+        assert runner1.logger is not runner2.logger
+
+        # Verify different log levels
+        assert runner1.logger.level == logging.INFO
+        assert runner2.logger.level == logging.WARNING
+
+        # Verify no propagation to root logger
+        assert runner1.logger.propagate is False
+        assert runner2.logger.propagate is False
+
+        # Verify logger names are unique (use instance ID)
+        assert "parallamr.runner" in runner1.logger.name
+        assert "parallamr.runner" in runner2.logger.name
+        assert runner1.logger.name != runner2.logger.name
+
     @pytest.mark.asyncio
     async def test_validate_experiments_valid(self, tmp_path):
         """Test validating valid experiments."""

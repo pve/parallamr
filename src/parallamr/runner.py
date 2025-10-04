@@ -13,8 +13,6 @@ from .template import combine_files_with_variables
 from .token_counter import estimate_tokens, validate_context_window
 from .utils import format_experiment_summary, load_context_files, load_experiments_from_csv, load_file_content, validate_output_path
 
-logger = logging.getLogger(__name__)
-
 
 class ExperimentRunner:
     """
@@ -65,13 +63,23 @@ class ExperimentRunner:
         }
 
     def _setup_logging(self) -> None:
-        """Setup logging configuration."""
+        """Setup logging configuration for this runner instance."""
         level = logging.INFO if self.verbose else logging.WARNING
-        logging.basicConfig(
-            level=level,
-            format='[%(levelname)s] %(message)s',
-            handlers=[logging.StreamHandler()]
-        )
+
+        # Use instance-specific logger instead of root logger
+        self.logger = logging.getLogger(f"{__name__}.{id(self)}")
+        self.logger.setLevel(level)
+
+        # Only add handler if not already present
+        if not self.logger.handlers:
+            handler = logging.StreamHandler()
+            handler.setFormatter(
+                logging.Formatter('[%(levelname)s] %(message)s')
+            )
+            self.logger.addHandler(handler)
+
+        # Prevent propagation to root logger
+        self.logger.propagate = False
 
     async def run_experiments(
         self,
@@ -99,23 +107,23 @@ class ExperimentRunner:
         """
         # Load and validate inputs
         if read_prompt_stdin:
-            logger.info("Reading prompt from stdin")
+            self.logger.info("Reading prompt from stdin")
             primary_content = sys.stdin.read()
         else:
-            logger.info(f"Loading prompt from {prompt_file}")
+            self.logger.info(f"Loading prompt from {prompt_file}")
             primary_content = load_file_content(prompt_file)
 
         if read_experiments_stdin:
-            logger.info("Reading experiments from stdin")
+            self.logger.info("Reading experiments from stdin")
             experiments_content = sys.stdin.read()
             experiments = load_experiments_from_csv(csv_content=experiments_content)
         else:
-            logger.info(f"Loading experiments from {experiments_file}")
+            self.logger.info(f"Loading experiments from {experiments_file}")
             experiments = load_experiments_from_csv(csv_path=experiments_file)
 
         context_file_contents = []
         if context_files:
-            logger.info(f"Loading {len(context_files)} context file(s)")
+            self.logger.info(f"Loading {len(context_files)} context file(s)")
             context_file_contents = load_context_files(context_files)
 
         # Validate output path
@@ -123,16 +131,16 @@ class ExperimentRunner:
         csv_writer = IncrementalCSVWriter(output_path)
 
         # Log experiment summary
-        logger.info(format_experiment_summary(experiments))
+        self.logger.info(format_experiment_summary(experiments))
         if output_path:
-            logger.info(f"Results will be written to {output_path}")
+            self.logger.info(f"Results will be written to {output_path}")
         else:
-            logger.info("Results will be written to stdout")
+            self.logger.info("Results will be written to stdout")
 
         # Run experiments sequentially
         total_experiments = len(experiments)
         for i, experiment in enumerate(experiments, 1):
-            logger.info(f"Starting experiment {i}/{total_experiments}: {experiment.provider}/{experiment.model}")
+            self.logger.info(f"Starting experiment {i}/{total_experiments}: {experiment.provider}/{experiment.model}")
 
             result = await self._run_single_experiment(
                 experiment=experiment,
@@ -143,19 +151,19 @@ class ExperimentRunner:
             # Write result immediately
             csv_writer.write_result(result)
 
-            logger.info(f"Completed experiment {i}/{total_experiments}: status={result.status.value}")
+            self.logger.info(f"Completed experiment {i}/{total_experiments}: status={result.status.value}")
 
             # Log any warnings or errors
             if result.error_message:
                 if result.status == ExperimentStatus.WARNING:
-                    logger.warning(f"Experiment {i} warning: {result.error_message}")
+                    self.logger.warning(f"Experiment {i} warning: {result.error_message}")
                 else:
-                    logger.error(f"Experiment {i} error: {result.error_message}")
+                    self.logger.error(f"Experiment {i} error: {result.error_message}")
 
         if output_path:
-            logger.info(f"All experiments completed. Results written to {output_path}")
+            self.logger.info(f"All experiments completed. Results written to {output_path}")
         else:
-            logger.info("All experiments completed")
+            self.logger.info("All experiments completed")
 
     async def _run_single_experiment(
         self,
@@ -238,7 +246,7 @@ class ExperimentRunner:
             return result
 
         except Exception as e:
-            logger.exception(f"Unexpected error in experiment {experiment.row_number}")
+            self.logger.exception(f"Unexpected error in experiment {experiment.row_number}")
             return self._create_error_result(
                 experiment,
                 f"Unexpected error: {str(e)}"
