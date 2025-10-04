@@ -32,9 +32,6 @@ class OpenRouterProvider(Provider):
         """
         super().__init__(timeout)
         self.api_key = api_key or os.getenv("OPENROUTER_API_KEY")
-        if not self.api_key:
-            raise AuthenticationError("OpenRouter API key not provided")
-
         self.base_url = "https://openrouter.ai/api/v1"
         self._model_cache: Optional[Dict[str, Any]] = None
 
@@ -55,6 +52,14 @@ class OpenRouterProvider(Provider):
         Returns:
             ProviderResponse containing the completion result
         """
+        if not self.api_key:
+            return ProviderResponse(
+                output="",
+                output_tokens=0,
+                success=False,
+                error_message="OpenRouter API key not provided"
+            )
+
         if not self.is_model_available(model):
             return ProviderResponse(
                 output="",

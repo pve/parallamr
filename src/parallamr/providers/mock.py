@@ -11,9 +11,15 @@ from .base import Provider
 class MockProvider(Provider):
     """Mock provider that returns formatted test responses."""
 
-    def __init__(self, timeout: int = 300):
-        """Initialize the mock provider."""
+    def __init__(self, timeout: int = 300, context_window: int = 100000):
+        """Initialize the mock provider.
+
+        Args:
+            timeout: Request timeout in seconds
+            context_window: Mock context window size (default: 100000)
+        """
         super().__init__(timeout)
+        self._context_window = context_window
 
     async def get_completion(
         self,
@@ -53,7 +59,7 @@ class MockProvider(Provider):
             output=mock_output,
             output_tokens=output_tokens,
             success=True,
-            context_window=None  # Mock provider doesn't specify context window
+            context_window=self._context_window
         )
 
     async def get_context_window(self, model: str) -> Optional[int]:
@@ -64,9 +70,9 @@ class MockProvider(Provider):
             model: Model identifier
 
         Returns:
-            None (mock provider doesn't specify context window)
+            Mock context window size
         """
-        return None
+        return self._context_window
 
     async def list_models(self) -> list[str]:
         """
