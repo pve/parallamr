@@ -37,8 +37,8 @@ class TestEstimateTokens:
 
     def test_estimate_tokens_newlines(self):
         """Test estimating tokens with newlines."""
-        text = "Line 1\nLine 2\nLine 3"  # 19 characters
-        expected = 19 // 4  # 4 tokens
+        text = "Line 1\nLine 2\nLine 3"  # 20 characters (6 + 1 + 6 + 1 + 6)
+        expected = 20 // 4  # 5 tokens
         assert estimate_tokens(text) == expected
 
 
@@ -78,10 +78,10 @@ class TestEstimateTokensDetailed:
         result = estimate_tokens_detailed(text)
 
         expected = {
-            "characters": 19,
+            "characters": 20,  # 6 + 1 + 6 + 1 + 6 = 20
             "words": 6,
             "lines": 3,
-            "estimated_tokens": 4,  # 19 // 4
+            "estimated_tokens": 5,  # 20 // 4 = 5
         }
 
         assert result == expected
