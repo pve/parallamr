@@ -2,7 +2,7 @@
 
 import asyncio
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import aiohttp
 
@@ -20,16 +20,25 @@ from .base import (
 class OllamaProvider(Provider):
     """Ollama API provider for local LLM models."""
 
-    def __init__(self, base_url: Optional[str] = None, timeout: int = 300):
+    def __init__(
+        self,
+        base_url: Optional[str] = None,
+        timeout: int = 300,
+        env_getter: Optional[Callable[[str, str], Optional[str]]] = None
+    ):
         """
         Initialize the Ollama provider.
 
         Args:
             base_url: Ollama server URL (if None, reads from OLLAMA_BASE_URL env var)
             timeout: Request timeout in seconds
+            env_getter: Function to get env vars with default (defaults to os.getenv)
         """
         super().__init__(timeout)
-        self.base_url = base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+
+        # Use injected env_getter for testability
+        _env_getter = env_getter or os.getenv
+        self.base_url = base_url or _env_getter("OLLAMA_BASE_URL", "http://localhost:11434")
         self._model_cache: Optional[List[str]] = None
 
     async def get_completion(

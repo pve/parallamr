@@ -1,5 +1,7 @@
 """Tests for provider implementations."""
 
+from typing import Optional
+
 import pytest
 
 from parallamr.models import ProviderResponse
@@ -69,6 +71,89 @@ class TestMockProvider:
         provider = MockProvider()
 
         assert provider.get_provider_name() == "mock"
+
+
+class TestProviderDependencyInjection:
+    """Test dependency injection in provider classes."""
+
+    def test_openrouter_env_getter_injection(self):
+        """Test OpenRouter provider with custom env_getter."""
+        from parallamr.providers import OpenRouterProvider
+
+        # Create mock env_getter that returns test API key
+        def mock_env_getter(key: str) -> Optional[str]:
+            if key == "OPENROUTER_API_KEY":
+                return "test-api-key-123"
+            return None
+
+        # Inject env_getter
+        provider = OpenRouterProvider(env_getter=mock_env_getter)
+
+        # Verify it used the injected env_getter
+        assert provider.api_key == "test-api-key-123"
+
+    def test_openrouter_base_url_injection(self):
+        """Test OpenRouter provider with custom base_url."""
+        from parallamr.providers import OpenRouterProvider
+
+        # Inject custom base URL (for testing with mock server)
+        provider = OpenRouterProvider(
+            api_key="test-key",
+            base_url="http://localhost:8080/api/v1"
+        )
+
+        # Verify custom base URL is used
+        assert provider.base_url == "http://localhost:8080/api/v1"
+
+    def test_openrouter_default_behavior(self):
+        """Test OpenRouter provider uses defaults when nothing injected."""
+        from parallamr.providers import OpenRouterProvider
+
+        # No injection - should use defaults
+        provider = OpenRouterProvider(api_key="direct-key")
+
+        # Verify defaults
+        assert provider.api_key == "direct-key"
+        assert provider.base_url == "https://openrouter.ai/api/v1"
+
+    def test_ollama_env_getter_injection(self):
+        """Test Ollama provider with custom env_getter."""
+        from parallamr.providers import OllamaProvider
+
+        # Create mock env_getter that returns test URL
+        def mock_env_getter(key: str, default: str = "") -> str:
+            if key == "OLLAMA_BASE_URL":
+                return "http://test-ollama:5000"
+            return default
+
+        # Inject env_getter
+        provider = OllamaProvider(env_getter=mock_env_getter)
+
+        # Verify it used the injected env_getter
+        assert provider.base_url == "http://test-ollama:5000"
+
+    def test_ollama_base_url_injection(self):
+        """Test Ollama provider with custom base_url."""
+        from parallamr.providers import OllamaProvider
+
+        # Inject custom base URL
+        provider = OllamaProvider(base_url="http://custom-ollama:8080")
+
+        # Verify custom base URL is used
+        assert provider.base_url == "http://custom-ollama:8080"
+
+    def test_ollama_default_behavior(self, monkeypatch):
+        """Test Ollama provider uses defaults when nothing injected."""
+        from parallamr.providers import OllamaProvider
+
+        # Ensure no env var is set (for test isolation)
+        monkeypatch.delenv("OLLAMA_BASE_URL", raising=False)
+
+        # No injection - should use defaults
+        provider = OllamaProvider()
+
+        # Verify default (localhost:11434 since env var not set)
+        assert provider.base_url == "http://localhost:11434"
 
 
 # Note: Testing OpenRouter and Ollama providers would require actual API access

@@ -2,7 +2,7 @@
 
 import asyncio
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 import aiohttp
 
@@ -22,17 +22,29 @@ from .base import (
 class OpenRouterProvider(Provider):
     """OpenRouter API provider for accessing multiple LLM models."""
 
-    def __init__(self, api_key: Optional[str] = None, timeout: int = 300):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        timeout: int = 300,
+        base_url: Optional[str] = None,
+        env_getter: Optional[Callable[[str], Optional[str]]] = None
+    ):
         """
         Initialize the OpenRouter provider.
 
         Args:
             api_key: OpenRouter API key (if None, reads from OPENROUTER_API_KEY env var)
             timeout: Request timeout in seconds
+            base_url: API base URL (for testing with mock servers)
+            env_getter: Function to get env vars (defaults to os.getenv)
         """
         super().__init__(timeout)
-        self.api_key = api_key or os.getenv("OPENROUTER_API_KEY")
-        self.base_url = "https://openrouter.ai/api/v1"
+
+        # Use injected env_getter for testability
+        _env_getter = env_getter or os.getenv
+        self.api_key = api_key or _env_getter("OPENROUTER_API_KEY")
+
+        self.base_url = base_url or "https://openrouter.ai/api/v1"
         self._model_cache: Optional[Dict[str, Any]] = None
 
     async def get_completion(
