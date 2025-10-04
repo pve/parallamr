@@ -2,16 +2,16 @@
 
 import asyncio
 import logging
-import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from .csv_writer import IncrementalCSVWriter
+from .file_loader import FileLoader
 from .models import Experiment, ExperimentResult, ExperimentStatus
 from .providers import MockProvider, OllamaProvider, OpenRouterProvider, Provider
 from .template import combine_files_with_variables
 from .token_counter import estimate_tokens, validate_context_window
-from .utils import format_experiment_summary, load_context_files, load_experiments_from_csv, load_file_content, validate_output_path
+from .utils import format_experiment_summary, validate_output_path
 
 
 class ExperimentRunner:
@@ -23,7 +23,8 @@ class ExperimentRunner:
         self,
         timeout: int = 300,
         verbose: bool = False,
-        providers: Optional[Dict[str, Provider]] = None
+        providers: Optional[Dict[str, Provider]] = None,
+        file_loader: Optional[FileLoader] = None
     ):
         """
         Initialize the experiment runner.
@@ -32,6 +33,7 @@ class ExperimentRunner:
             timeout: Request timeout in seconds
             verbose: Enable verbose logging
             providers: Optional provider dictionary (defaults to standard providers)
+            file_loader: Optional file loader (defaults to FileLoader instance)
         """
         self.timeout = timeout
         self.verbose = verbose
@@ -41,6 +43,9 @@ class ExperimentRunner:
             self.providers = providers
         else:
             self.providers = self._create_default_providers(timeout)
+
+        # Use injected file loader or create default
+        self.file_loader = file_loader or FileLoader()
 
         self._setup_logging()
 
@@ -105,26 +110,31 @@ class ExperimentRunner:
             FileNotFoundError: If input files don't exist
             ValueError: If configuration is invalid
         """
-        # Load and validate inputs
+        # Load and validate inputs using FileLoader
         if read_prompt_stdin:
             self.logger.info("Reading prompt from stdin")
-            primary_content = sys.stdin.read()
         else:
             self.logger.info(f"Loading prompt from {prompt_file}")
-            primary_content = load_file_content(prompt_file)
+        primary_content = self.file_loader.load_prompt(
+            Path(prompt_file) if prompt_file else None,
+            read_prompt_stdin
+        )
 
         if read_experiments_stdin:
             self.logger.info("Reading experiments from stdin")
-            experiments_content = sys.stdin.read()
-            experiments = load_experiments_from_csv(csv_content=experiments_content)
         else:
             self.logger.info(f"Loading experiments from {experiments_file}")
-            experiments = load_experiments_from_csv(csv_path=experiments_file)
+        experiments = self.file_loader.load_experiments(
+            Path(experiments_file) if experiments_file else None,
+            read_experiments_stdin
+        )
 
         context_file_contents = []
         if context_files:
             self.logger.info(f"Loading {len(context_files)} context file(s)")
-            context_file_contents = load_context_files(context_files)
+            context_file_contents = self.file_loader.load_context(
+                [Path(f) for f in context_files]
+            )
 
         # Validate output path
         output_path = validate_output_path(output_file)
@@ -317,11 +327,10 @@ class ExperimentRunner:
             Dictionary with validation results
         """
         try:
-            if read_stdin:
-                experiments_content = sys.stdin.read()
-                experiments = load_experiments_from_csv(csv_content=experiments_content)
-            else:
-                experiments = load_experiments_from_csv(csv_path=experiments_file)
+            experiments = self.file_loader.load_experiments(
+                Path(experiments_file) if experiments_file else None,
+                read_stdin
+            )
         except Exception as e:
             return {
                 "valid": False,
