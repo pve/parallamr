@@ -96,12 +96,12 @@ class IncrementalCSVWriter:
             raise ValueError("Cannot write headers without fieldnames")
 
         if self._is_stdout:
-            writer = csv.DictWriter(sys.stdout, fieldnames=self._fieldnames, lineterminator='\n')
+            writer = csv.DictWriter(sys.stdout, fieldnames=self._fieldnames, dialect='excel', lineterminator='\n')
             writer.writeheader()
             sys.stdout.flush()
         else:
             with open(self.output_path, 'w', newline='', encoding='utf-8') as file:
-                writer = csv.DictWriter(file, fieldnames=self._fieldnames)
+                writer = csv.DictWriter(file, fieldnames=self._fieldnames, dialect='excel')
                 writer.writeheader()
 
     def _write_row(self, row_data: Dict[str, Any]) -> None:
@@ -118,12 +118,12 @@ class IncrementalCSVWriter:
         complete_row = {field: row_data.get(field, "") for field in self._fieldnames}
 
         if self._is_stdout:
-            writer = csv.DictWriter(sys.stdout, fieldnames=self._fieldnames, lineterminator='\n')
+            writer = csv.DictWriter(sys.stdout, fieldnames=self._fieldnames, dialect='excel', lineterminator='\n')
             writer.writerow(complete_row)
             sys.stdout.flush()
         else:
             with open(self.output_path, 'a', newline='', encoding='utf-8') as file:
-                writer = csv.DictWriter(file, fieldnames=self._fieldnames)
+                writer = csv.DictWriter(file, fieldnames=self._fieldnames, dialect='excel')
                 writer.writerow(complete_row)
 
     @property
