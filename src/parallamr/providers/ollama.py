@@ -24,7 +24,8 @@ class OllamaProvider(Provider):
         self,
         base_url: Optional[str] = None,
         timeout: int = 300,
-        env_getter: Optional[Callable[[str, str], Optional[str]]] = None
+        env_getter: Optional[Callable[[str, str], Optional[str]]] = None,
+        session: Optional[aiohttp.ClientSession] = None
     ):
         """
         Initialize the Ollama provider.
@@ -33,12 +34,14 @@ class OllamaProvider(Provider):
             base_url: Ollama server URL (if None, reads from OLLAMA_BASE_URL env var)
             timeout: Request timeout in seconds
             env_getter: Function to get env vars with default (defaults to os.getenv)
+            session: Optional aiohttp.ClientSession for connection reuse (defaults to None)
         """
         super().__init__(timeout)
 
         # Use injected env_getter for testability
         _env_getter = env_getter or os.getenv
         self.base_url = base_url or _env_getter("OLLAMA_BASE_URL", "http://localhost:11434")
+        self._session = session
         self._model_cache: Optional[List[str]] = None
 
     async def get_completion(
@@ -76,10 +79,12 @@ class OllamaProvider(Provider):
         }
 
         try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
-                async with session.post(
+            # Use injected session if available, otherwise create temporary session
+            if self._session:
+                async with self._session.post(
                     f"{self.base_url}/api/generate",
-                    json=payload
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=self.timeout)
                 ) as response:
                     if response.status == 404:
                         return ProviderResponse(
@@ -112,6 +117,44 @@ class OllamaProvider(Provider):
                         error_message=error_message,
                         context_window=context_window
                     )
+            else:
+                # No injected session - use temporary session (backward compatibility)
+                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
+                    async with session.post(
+                        f"{self.base_url}/api/generate",
+                        json=payload
+                    ) as response:
+                        if response.status == 404:
+                            return ProviderResponse(
+                                output="",
+                                output_tokens=0,
+                                success=False,
+                                error_message=f"Model {model} not found on Ollama server"
+                            )
+
+                        response.raise_for_status()
+                        data = await response.json()
+
+                        output = data.get("response", "")
+
+                        # Ollama doesn't always provide token counts, so we estimate
+                        output_tokens = estimate_tokens(output)
+
+                        # Get context window for this model
+                        context_window = await self.get_context_window(model)
+
+                        # Check for any errors in the response
+                        error_message = None
+                        if data.get("error"):
+                            error_message = data["error"]
+
+                        return ProviderResponse(
+                            output=output,
+                            output_tokens=output_tokens,
+                            success=not bool(error_message),
+                            error_message=error_message,
+                            context_window=context_window
+                        )
 
         except asyncio.TimeoutError:
             return ProviderResponse(
@@ -153,10 +196,12 @@ class OllamaProvider(Provider):
             Context window size in tokens, or None if unknown
         """
         try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
-                async with session.post(
+            # Use injected session if available, otherwise create temporary session
+            if self._session:
+                async with self._session.post(
                     f"{self.base_url}/api/show",
-                    json={"name": model}
+                    json={"name": model},
+                    timeout=aiohttp.ClientTimeout(total=30)
                 ) as response:
                     if response.status != 200:
                         return None
@@ -177,6 +222,32 @@ class OllamaProvider(Provider):
                             return model_info[key]
 
                     return None
+            else:
+                # No injected session - use temporary session
+                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+                    async with session.post(
+                        f"{self.base_url}/api/show",
+                        json={"name": model}
+                    ) as response:
+                        if response.status != 200:
+                            return None
+
+                        data = await response.json()
+
+                        # Extract context window from model_info
+                        # Ollama provides this in model_info with architecture-specific keys
+                        model_info = data.get("model_info", {})
+
+                        # Check for llama.context_length (used by Llama models)
+                        if "llama.context_length" in model_info:
+                            return model_info["llama.context_length"]
+
+                        # Fallback: check for other common context length keys
+                        for key in model_info:
+                            if "context_length" in key or "context_window" in key:
+                                return model_info[key]
+
+                        return None
 
         except Exception:
             # If we can't get model info, return None
@@ -193,8 +264,12 @@ class OllamaProvider(Provider):
             return self._model_cache
 
         try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
-                async with session.get(f"{self.base_url}/api/tags") as response:
+            # Use injected session if available, otherwise create temporary session
+            if self._session:
+                async with self._session.get(
+                    f"{self.base_url}/api/tags",
+                    timeout=aiohttp.ClientTimeout(total=30)
+                ) as response:
                     response.raise_for_status()
                     data = await response.json()
 
@@ -207,6 +282,22 @@ class OllamaProvider(Provider):
 
                     self._model_cache = models
                     return models
+            else:
+                # No injected session - use temporary session
+                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+                    async with session.get(f"{self.base_url}/api/tags") as response:
+                        response.raise_for_status()
+                        data = await response.json()
+
+                        models = []
+                        for model_info in data.get("models", []):
+                            model_name = model_info.get("name", "")
+                            if model_name:
+                                # Keep full model name including tag (e.g., "llama3.1:latest")
+                                models.append(model_name)
+
+                        self._model_cache = models
+                        return models
 
         except Exception:
             # If we can't fetch models, return empty list
@@ -240,10 +331,12 @@ class OllamaProvider(Provider):
             True if successful, False otherwise
         """
         try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=600)) as session:
-                async with session.post(
+            # Use injected session if available, otherwise create temporary session
+            if self._session:
+                async with self._session.post(
                     f"{self.base_url}/api/pull",
-                    json={"name": model}
+                    json={"name": model},
+                    timeout=aiohttp.ClientTimeout(total=600)
                 ) as response:
                     response.raise_for_status()
 
@@ -251,6 +344,19 @@ class OllamaProvider(Provider):
                     self._model_cache = None
 
                     return True
+            else:
+                # No injected session - use temporary session
+                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=600)) as session:
+                    async with session.post(
+                        f"{self.base_url}/api/pull",
+                        json={"name": model}
+                    ) as response:
+                        response.raise_for_status()
+
+                        # Clear cache so it will be refreshed
+                        self._model_cache = None
+
+                        return True
 
         except Exception:
             return False

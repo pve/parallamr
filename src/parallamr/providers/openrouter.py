@@ -27,7 +27,8 @@ class OpenRouterProvider(Provider):
         api_key: Optional[str] = None,
         timeout: int = 300,
         base_url: Optional[str] = None,
-        env_getter: Optional[Callable[[str], Optional[str]]] = None
+        env_getter: Optional[Callable[[str], Optional[str]]] = None,
+        session: Optional[aiohttp.ClientSession] = None
     ):
         """
         Initialize the OpenRouter provider.
@@ -37,6 +38,7 @@ class OpenRouterProvider(Provider):
             timeout: Request timeout in seconds
             base_url: API base URL (for testing with mock servers)
             env_getter: Function to get env vars (defaults to os.getenv)
+            session: Optional aiohttp.ClientSession for connection reuse (defaults to None)
         """
         super().__init__(timeout)
 
@@ -45,6 +47,7 @@ class OpenRouterProvider(Provider):
         self.api_key = api_key or _env_getter("OPENROUTER_API_KEY")
 
         self.base_url = base_url or "https://openrouter.ai/api/v1"
+        self._session = session
         self._model_cache: Optional[Dict[str, Any]] = None
 
     async def get_completion(
@@ -96,11 +99,13 @@ class OpenRouterProvider(Provider):
         }
 
         try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
-                async with session.post(
+            # Use injected session if available, otherwise create temporary session
+            if self._session:
+                async with self._session.post(
                     f"{self.base_url}/chat/completions",
                     headers=headers,
-                    json=payload
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=self.timeout)
                 ) as response:
                     if response.status == 401:
                         return ProviderResponse(
@@ -140,6 +145,52 @@ class OpenRouterProvider(Provider):
                         success=True,
                         context_window=context_window
                     )
+            else:
+                # No injected session - use temporary session (backward compatibility)
+                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
+                    async with session.post(
+                        f"{self.base_url}/chat/completions",
+                        headers=headers,
+                        json=payload
+                    ) as response:
+                        if response.status == 401:
+                            return ProviderResponse(
+                                output="",
+                                output_tokens=0,
+                                success=False,
+                                error_message="Authentication failed - invalid API key"
+                            )
+                        elif response.status == 429:
+                            return ProviderResponse(
+                                output="",
+                                output_tokens=0,
+                                success=False,
+                                error_message="Rate limit exceeded"
+                            )
+                        elif response.status == 413:
+                            return ProviderResponse(
+                                output="",
+                                output_tokens=0,
+                                success=False,
+                                error_message="Request too large - input exceeds model context window"
+                            )
+
+                        response.raise_for_status()
+                        data = await response.json()
+
+                        # Extract response content
+                        output = data["choices"][0]["message"]["content"]
+                        output_tokens = data.get("usage", {}).get("completion_tokens", estimate_tokens(output))
+
+                        # Get context window for this model
+                        context_window = await self.get_context_window(model)
+
+                        return ProviderResponse(
+                            output=output,
+                            output_tokens=output_tokens,
+                            success=True,
+                            context_window=context_window
+                        )
 
         except asyncio.TimeoutError:
             return ProviderResponse(
@@ -220,10 +271,12 @@ class OpenRouterProvider(Provider):
         }
 
         try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
-                async with session.get(
+            # Use injected session if available, otherwise create temporary session
+            if self._session:
+                async with self._session.get(
                     f"{self.base_url}/models",
-                    headers=headers
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=30)
                 ) as response:
                     response.raise_for_status()
                     data = await response.json()
@@ -237,6 +290,25 @@ class OpenRouterProvider(Provider):
 
                     self._model_cache = models_dict
                     return self._model_cache
+            else:
+                # No injected session - use temporary session
+                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+                    async with session.get(
+                        f"{self.base_url}/models",
+                        headers=headers
+                    ) as response:
+                        response.raise_for_status()
+                        data = await response.json()
+
+                        # Convert list of models to dictionary
+                        models_dict = {}
+                        for model_info in data.get("data", []):
+                            model_id = model_info.get("id")
+                            if model_id:
+                                models_dict[model_id] = model_info
+
+                        self._model_cache = models_dict
+                        return self._model_cache
 
         except Exception:
             # If we can't fetch models, return None and let individual requests handle errors

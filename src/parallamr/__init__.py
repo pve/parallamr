@@ -1,6 +1,6 @@
 """Parallamr: A command-line tool for running systematic experiments across multiple LLM providers."""
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 __author__ = "Peter's HiveMind Collective"
 __email__ = "contact@parallamr.dev"
 
