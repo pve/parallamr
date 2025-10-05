@@ -2,6 +2,7 @@
 
 import csv
 import sys
+import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TextIO
 
@@ -13,6 +14,7 @@ class IncrementalCSVWriter:
     Handles incremental writing to CSV with proper escaping.
     Writes headers on first call, appends data subsequently.
     Supports writing to stdout by passing None as output_path.
+    Thread-safe with persistent file handle for better parallel performance.
     """
 
     def __init__(self, output_path: Optional[str | Path]):
@@ -26,27 +28,38 @@ class IncrementalCSVWriter:
         self._headers_written = False
         self._fieldnames: Optional[List[str]] = None
         self._is_stdout = output_path is None
+        self._file_handle: Optional[TextIO] = None
+        self._lock = threading.RLock()  # Reentrant lock for thread safety
+        self._closed = False
 
     def write_result(self, result: ExperimentResult) -> None:
         """
         Append a single result row to the CSV file.
+        Thread-safe with locking.
 
         Args:
             result: ExperimentResult to write to CSV
+
+        Raises:
+            ValueError: If writer is closed
         """
-        row_data = result.to_csv_row()
+        with self._lock:
+            if self._closed and not self._is_stdout:
+                raise ValueError("Cannot write to closed CSV writer")
 
-        # Determine fieldnames from first result if not set
-        if self._fieldnames is None:
-            self._fieldnames = self._determine_fieldnames(row_data)
+            row_data = result.to_csv_row()
 
-        # Write headers if this is the first write
-        if not self._headers_written:
-            self._write_headers()
-            self._headers_written = True
+            # Determine fieldnames from first result if not set
+            if self._fieldnames is None:
+                self._fieldnames = self._determine_fieldnames(row_data)
 
-        # Append the result row
-        self._write_row(row_data)
+            # Write headers if this is the first write
+            if not self._headers_written:
+                self._write_headers()
+                self._headers_written = True
+
+            # Append the result row
+            self._write_row(row_data)
 
     def write_results(self, results: List[ExperimentResult]) -> None:
         """
@@ -100,9 +113,12 @@ class IncrementalCSVWriter:
             writer.writeheader()
             sys.stdout.flush()
         else:
-            with open(self.output_path, 'w', newline='', encoding='utf-8-sig') as file:
-                writer = csv.DictWriter(file, fieldnames=self._fieldnames, dialect='excel')
-                writer.writeheader()
+            # Open file handle for persistent use
+            if self._file_handle is None:
+                self._file_handle = open(self.output_path, 'w', newline='', encoding='utf-8-sig')
+            writer = csv.DictWriter(self._file_handle, fieldnames=self._fieldnames, dialect='excel')
+            writer.writeheader()
+            self._file_handle.flush()
 
     def _write_row(self, row_data: Dict[str, Any]) -> None:
         """
@@ -122,9 +138,12 @@ class IncrementalCSVWriter:
             writer.writerow(complete_row)
             sys.stdout.flush()
         else:
-            with open(self.output_path, 'a', newline='', encoding='utf-8-sig') as file:
-                writer = csv.DictWriter(file, fieldnames=self._fieldnames, dialect='excel')
-                writer.writerow(complete_row)
+            # Use persistent file handle
+            if self._file_handle is None:
+                raise ValueError("File handle not initialized")
+            writer = csv.DictWriter(self._file_handle, fieldnames=self._fieldnames, dialect='excel')
+            writer.writerow(complete_row)
+            self._file_handle.flush()
 
     @property
     def exists(self) -> bool:
@@ -138,10 +157,34 @@ class IncrementalCSVWriter:
         """Check if headers have been written to the file."""
         return self._headers_written
 
+    def close(self) -> None:
+        """
+        Close the file handle if open.
+        Idempotent - can be called multiple times safely.
+        """
+        with self._lock:
+            if self._file_handle is not None and not self._file_handle.closed:
+                self._file_handle.close()
+            self._closed = True
+
     def reset(self) -> None:
         """Reset the writer state (useful for testing)."""
-        self._headers_written = False
-        self._fieldnames = None
+        with self._lock:
+            # Close file handle before resetting
+            self.close()
+            self._headers_written = False
+            self._fieldnames = None
+            self._file_handle = None
+            self._closed = False
+
+    def __enter__(self):
+        """Enter context manager."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit context manager and close file handle."""
+        self.close()
+        return False
 
     def get_existing_fieldnames(self) -> Optional[List[str]]:
         """
