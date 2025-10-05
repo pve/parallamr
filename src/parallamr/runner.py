@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -12,6 +13,15 @@ from .providers import MockProvider, OllamaProvider, OpenRouterProvider, Provide
 from .template import combine_files_with_variables
 from .token_counter import estimate_tokens, validate_context_window
 from .utils import format_experiment_summary, validate_output_path
+
+
+@dataclass
+class TokenValidation:
+    """Result of token limit validation."""
+    valid: bool
+    input_tokens: int
+    warnings: List[str]
+    error_message: Optional[str] = None
 
 
 class ExperimentRunner:
@@ -175,6 +185,95 @@ class ExperimentRunner:
         else:
             self.logger.info("All experiments completed")
 
+    def _get_provider(self, experiment: Experiment) -> Optional[Provider]:
+        """
+        Get provider for experiment.
+
+        Args:
+            experiment: Experiment configuration
+
+        Returns:
+            Provider instance or None if not found
+        """
+        return self.providers.get(experiment.provider)
+
+    def _prepare_prompt(
+        self,
+        experiment: Experiment,
+        primary_content: str,
+        context_files: List[Tuple[str, str]]
+    ) -> Tuple[str, List[str]]:
+        """
+        Prepare prompt with variable substitution.
+
+        Args:
+            experiment: Experiment configuration
+            primary_content: Primary prompt file content
+            context_files: List of (filename, content) tuples
+
+        Returns:
+            Tuple of (combined_content, warnings)
+        """
+        combined_content, missing_variables = combine_files_with_variables(
+            primary_content,
+            context_files,
+            experiment.variables
+        )
+
+        warnings = []
+        if missing_variables:
+            for var in missing_variables:
+                warnings.append(
+                    f"Variable '{{{{{var}}}}}' in template has no value in experiment row {experiment.row_number}"
+                )
+
+        return combined_content, warnings
+
+    async def _validate_token_limits(
+        self,
+        experiment: Experiment,
+        provider: Provider,
+        combined_content: str
+    ) -> TokenValidation:
+        """
+        Validate token limits for experiment.
+
+        Args:
+            experiment: Experiment configuration
+            provider: Provider instance
+            combined_content: Prepared prompt content
+
+        Returns:
+            TokenValidation result
+        """
+        input_tokens = estimate_tokens(combined_content)
+        context_window = await provider.get_context_window(experiment.model)
+
+        context_valid, context_warning = validate_context_window(
+            input_tokens,
+            context_window,
+            model=experiment.model,
+            provider=experiment.provider
+        )
+
+        warnings = []
+        if context_warning:
+            warnings.append(context_warning)
+
+        if not context_valid:
+            return TokenValidation(
+                valid=False,
+                input_tokens=input_tokens,
+                warnings=warnings,
+                error_message=f"Input tokens ({input_tokens}) exceed model context window ({context_window})"
+            )
+
+        return TokenValidation(
+            valid=True,
+            input_tokens=input_tokens,
+            warnings=warnings
+        )
+
     async def _run_single_experiment(
         self,
         experiment: Experiment,
@@ -182,7 +281,14 @@ class ExperimentRunner:
         context_files: List[Tuple[str, str]],
     ) -> ExperimentResult:
         """
-        Run a single experiment.
+        Run a single experiment (orchestrator method).
+
+        This method coordinates the experiment execution by:
+        1. Getting the provider
+        2. Preparing the prompt with variable substitution
+        3. Validating token limits
+        4. Calling the provider
+        5. Creating the result
 
         Args:
             experiment: Experiment configuration
@@ -193,64 +299,49 @@ class ExperimentRunner:
             ExperimentResult containing the execution result
         """
         try:
-            # Get the appropriate provider
-            provider = self.providers.get(experiment.provider)
+            # Step 1: Get provider
+            provider = self._get_provider(experiment)
             if not provider:
                 return self._create_error_result(
                     experiment,
                     f"Unknown provider: {experiment.provider}"
                 )
 
-            # Combine files and replace variables
-            combined_content, missing_variables = combine_files_with_variables(
+            # Step 2: Prepare prompt
+            combined_content, template_warnings = self._prepare_prompt(
+                experiment,
                 primary_content,
-                context_files,
-                experiment.variables
+                context_files
             )
 
-            # Estimate input tokens
-            input_tokens = estimate_tokens(combined_content)
-
-            # Get model context window
-            context_window = await provider.get_context_window(experiment.model)
-
-            # Validate context window
-            context_valid, context_warning = validate_context_window(
-                input_tokens,
-                context_window,
-                model=experiment.model,
-                provider=experiment.provider
+            # Step 3: Validate token limits
+            validation = await self._validate_token_limits(
+                experiment,
+                provider,
+                combined_content
             )
 
-            # Prepare warnings list
-            warnings = []
-            if missing_variables:
-                for var in missing_variables:
-                    warnings.append(f"Variable '{{{{{var}}}}}' in template has no value in experiment row {experiment.row_number}")
-
-            if context_warning:
-                warnings.append(context_warning)
-
-            if not context_valid:
+            if not validation.valid:
                 return self._create_error_result(
                     experiment,
-                    f"Input tokens ({input_tokens}) exceed model context window ({context_window})",
-                    input_tokens
+                    validation.error_message,
+                    validation.input_tokens
                 )
 
-            # Get completion from provider
+            # Step 4: Get completion from provider
             provider_response = await provider.get_completion(
                 prompt=combined_content,
                 model=experiment.model,
-                variables=experiment.variables  # Pass variables for providers that might use them
+                variables=experiment.variables
             )
 
-            # Create result
+            # Step 5: Create result
+            all_warnings = template_warnings + validation.warnings
             result = ExperimentResult.from_experiment_and_response(
                 experiment=experiment,
                 response=provider_response,
-                input_tokens=input_tokens,
-                template_warnings=warnings if warnings else None
+                input_tokens=validation.input_tokens,
+                template_warnings=all_warnings if all_warnings else None
             )
 
             return result
