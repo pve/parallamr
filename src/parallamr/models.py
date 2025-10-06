@@ -77,6 +77,7 @@ class ExperimentResult:
     output_tokens: int
     output: str
     error_message: Optional[str] = None
+    json_fields: Optional[Dict[str, Any]] = None
 
     @classmethod
     def from_experiment_and_response(
@@ -85,6 +86,7 @@ class ExperimentResult:
         response: ProviderResponse,
         input_tokens: int,
         template_warnings: Optional[list[str]] = None,
+        json_fields: Optional[Dict[str, Any]] = None,
     ) -> ExperimentResult:
         """Create a result from an experiment and provider response."""
         # Combine any template warnings with provider error message
@@ -112,11 +114,20 @@ class ExperimentResult:
             output_tokens=response.output_tokens,
             output=response.output,
             error_message=combined_error,
+            json_fields=json_fields,
         )
 
     def to_csv_row(self) -> Dict[str, Any]:
         """Convert result to a CSV row dictionary."""
         row = self.variables.copy()
+
+        # Add JSON fields if present
+        if self.json_fields:
+            row.update(self.json_fields)
+
+        # Clean output: replace newlines and carriage returns with spaces for Excel compatibility
+        cleaned_output = self.output.replace('\n', ' ').replace('\r', ' ') if self.output else ""
+
         row.update({
             "provider": self.provider,
             "model": self.model,
@@ -124,7 +135,7 @@ class ExperimentResult:
             "input_tokens": self.input_tokens,
             "context_window": self.context_window or "",
             "output_tokens": self.output_tokens,
-            "output": self.output,
+            "output": cleaned_output,
             "error_message": self.error_message or "",
         })
         return row

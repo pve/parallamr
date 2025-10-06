@@ -21,7 +21,8 @@ def create_experiment_runner(
     verbose: bool = False,
     providers: Optional[Dict[str, Provider]] = None,
     file_loader: Optional[FileLoader] = None,
-    session: Optional[aiohttp.ClientSession] = None
+    session: Optional[aiohttp.ClientSession] = None,
+    flatten_json: bool = False
 ) -> ExperimentRunner:
     """
     Factory function to create ExperimentRunner with dependency injection.
@@ -35,6 +36,7 @@ def create_experiment_runner(
         providers: Optional provider dictionary (defaults to standard providers)
         file_loader: Optional file loader (defaults to FileLoader instance)
         session: Optional HTTP session for parallel processing
+        flatten_json: Enable JSON extraction and flattening from outputs
 
     Returns:
         Configured ExperimentRunner instance
@@ -44,7 +46,8 @@ def create_experiment_runner(
         timeout=timeout,
         verbose=verbose,
         providers=providers,
-        file_loader=file_loader
+        file_loader=file_loader,
+        flatten_json=flatten_json
     )
 
     # If session provided, inject it into providers that support it
@@ -105,6 +108,11 @@ def cli() -> None:
     help="Request timeout in seconds (default: 300)"
 )
 @click.option(
+    "--flatten",
+    is_flag=True,
+    help="Extract and flatten JSON from outputs into separate CSV columns"
+)
+@click.option(
     "--validate-only",
     is_flag=True,
     help="Validate experiments without running them"
@@ -116,6 +124,7 @@ def run(
     context: tuple[Path, ...],
     verbose: bool,
     timeout: int,
+    flatten: bool,
     validate_only: bool
 ) -> None:
     """
@@ -129,6 +138,9 @@ def run(
 
         # Basic usage
         parallamr run -p prompt.txt -e experiments.csv -o results.csv
+
+        # With JSON flattening
+        parallamr run -p prompt.txt -e experiments.csv -o results.csv --flatten
 
         # With context files
         parallamr run -p prompt.txt -c context1.txt -c context2.txt -e experiments.csv -o results.csv
@@ -171,7 +183,7 @@ def run(
             sys.exit(1)
 
     # Create runner using factory
-    runner = create_experiment_runner(timeout=timeout, verbose=verbose)
+    runner = create_experiment_runner(timeout=timeout, verbose=verbose, flatten_json=flatten)
 
     if validate_only:
         # Validate experiments without running them

@@ -36,7 +36,8 @@ class ExperimentRunner:
         timeout: int = 300,
         verbose: bool = False,
         providers: Optional[Dict[str, Provider]] = None,
-        file_loader: Optional[FileLoader] = None
+        file_loader: Optional[FileLoader] = None,
+        flatten_json: bool = False
     ):
         """
         Initialize the experiment runner.
@@ -46,9 +47,11 @@ class ExperimentRunner:
             verbose: Enable verbose logging
             providers: Optional provider dictionary (defaults to standard providers)
             file_loader: Optional file loader (defaults to FileLoader instance)
+            flatten_json: Enable JSON extraction and flattening from LLM outputs
         """
         self.timeout = timeout
         self.verbose = verbose
+        self.flatten_json = flatten_json
 
         # Use injected providers or create defaults
         if providers is not None:
@@ -657,13 +660,22 @@ class ExperimentRunner:
                 variables=experiment.variables
             )
 
+            # Step 4b: Extract and flatten JSON if enabled
+            json_fields = None
+            if self.flatten_json and provider_response.success:
+                json_fields = self._extract_and_flatten_json(
+                    output=provider_response.output,
+                    experiment=experiment
+                )
+
             # Step 5: Create result
             all_warnings = template_warnings + validation.warnings
             result = ExperimentResult.from_experiment_and_response(
                 experiment=experiment,
                 response=provider_response,
                 input_tokens=validation.input_tokens,
-                template_warnings=all_warnings if all_warnings else None
+                template_warnings=all_warnings if all_warnings else None,
+                json_fields=json_fields
             )
 
             return result
@@ -704,6 +716,53 @@ class ExperimentRunner:
             output="",
             error_message=error_message
         )
+
+    def _extract_and_flatten_json(
+        self,
+        output: str,
+        experiment: Experiment
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Extract and flatten JSON from provider output.
+
+        Args:
+            output: Raw provider output string
+            experiment: Experiment configuration for column name resolution
+
+        Returns:
+            Dictionary of flattened JSON fields, or None if no valid JSON found
+        """
+        from . import json_extractor
+
+        try:
+            # Extract JSON from output (handles markdown code fences)
+            json_data = json_extractor.extract_json(output)
+            if json_data is None:
+                # No JSON found - this is OK, not an error
+                return None
+
+            # Flatten the JSON structure
+            flat_data = json_extractor.flatten_json(json_data)
+            if not flat_data:
+                return None
+
+            # Resolve column name conflicts
+            reserved_columns = {
+                "provider", "model", "status", "input_tokens",
+                "context_window", "output_tokens", "output", "error_message"
+            }
+            resolved_data = json_extractor.resolve_column_names(
+                flat_data=flat_data,
+                reserved_columns=reserved_columns,
+                experiment_vars=set(experiment.variables.keys())
+            )
+
+            return resolved_data
+
+        except Exception as e:
+            # Log but don't fail the experiment - JSON extraction is optional
+            self.logger.debug(f"JSON extraction failed for experiment {experiment.row_number}: {e}")
+            return None
 
     def add_provider(self, name: str, provider: Provider) -> None:
         """
