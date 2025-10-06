@@ -4,13 +4,56 @@ import asyncio
 import os
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
+import aiohttp
 import click
 from dotenv import load_dotenv, find_dotenv
 
 from . import __version__
+from .file_loader import FileLoader
+from .providers import Provider
 from .runner import ExperimentRunner
+
+
+def create_experiment_runner(
+    timeout: int = 300,
+    verbose: bool = False,
+    providers: Optional[Dict[str, Provider]] = None,
+    file_loader: Optional[FileLoader] = None,
+    session: Optional[aiohttp.ClientSession] = None
+) -> ExperimentRunner:
+    """
+    Factory function to create ExperimentRunner with dependency injection.
+
+    This factory enables better testability by allowing injection of mock
+    providers, file loaders, and HTTP sessions without requiring real API keys.
+
+    Args:
+        timeout: Request timeout in seconds
+        verbose: Enable verbose logging
+        providers: Optional provider dictionary (defaults to standard providers)
+        file_loader: Optional file loader (defaults to FileLoader instance)
+        session: Optional HTTP session for parallel processing
+
+    Returns:
+        Configured ExperimentRunner instance
+    """
+    # Create runner with injected dependencies
+    runner = ExperimentRunner(
+        timeout=timeout,
+        verbose=verbose,
+        providers=providers,
+        file_loader=file_loader
+    )
+
+    # If session provided, inject it into providers that support it
+    if session is not None:
+        for provider in runner.providers.values():
+            if hasattr(provider, '_session'):
+                provider._session = session
+
+    return runner
 
 
 def load_environment() -> None:
@@ -125,8 +168,8 @@ def run(
             click.echo(f"Error: Experiments file not found: {experiments}", err=True)
             sys.exit(1)
 
-    # Create runner
-    runner = ExperimentRunner(timeout=timeout, verbose=verbose)
+    # Create runner using factory
+    runner = create_experiment_runner(timeout=timeout, verbose=verbose)
 
     if validate_only:
         # Validate experiments without running them
@@ -241,7 +284,7 @@ def models(provider: str) -> None:
 
 async def _list_models(provider: str) -> None:
     """List models for a provider asynchronously."""
-    runner = ExperimentRunner()
+    runner = create_experiment_runner()
 
     if provider not in runner.providers:
         click.echo(f"Provider '{provider}' not available", err=True)
