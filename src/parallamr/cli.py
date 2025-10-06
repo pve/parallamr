@@ -90,8 +90,8 @@ def cli() -> None:
 @click.option(
     "--context", "-c",
     multiple=True,
-    type=click.Path(exists=True, path_type=Path),
-    help="Additional context files (multiple allowed)"
+    type=click.Path(path_type=Path),
+    help="Additional context files (multiple allowed, supports {{variable}} templates)"
 )
 @click.option(
     "--verbose", "-v",
@@ -154,7 +154,9 @@ def run(
         prompt_path = None  # Will be read from stdin
     else:
         prompt_path = Path(prompt)
-        if not prompt_path.exists():
+        # Skip existence check if path contains template variables
+        # (will be validated per-experiment at runtime)
+        if "{{" not in prompt and not prompt_path.exists():
             click.echo(f"Error: Prompt file not found: {prompt}", err=True)
             sys.exit(1)
 

@@ -82,27 +82,61 @@ parallamr run -p prompt.txt -e experiments.csv -o results.csv --validate-only
 parallamr run -p prompt.txt -e experiments.csv -o results.csv --verbose
 ```
 
-### Templated Output Paths
+### Templated File Paths
 
-Organize experiment results automatically by using template variables in output filenames:
+Organize experiments automatically by using template variables in **any file path** (prompt, context, or output):
+
+#### Templated Outputs
 
 ```bash
-# Separate files by topic
+# Separate output files by topic
 parallamr run -p prompt.txt -e experiments.csv -o "results-{{topic}}.csv"
 
 # Organize by provider and model
 parallamr run -p prompt.txt -e experiments.csv -o "{{provider}}/{{model}}-output.csv"
+```
 
-# Complex organization with subdirectories
-parallamr run -p prompt.txt -e experiments.csv -o "experiments/{{date}}/{{provider}}/{{model}}-{{topic}}.csv"
+#### Templated Prompts
+
+```bash
+# Different prompts per topic
+parallamr run -p "prompts/{{topic}}-prompt.txt" -e experiments.csv -o results.csv"
+
+# Model-specific prompts
+parallamr run -p "prompts/{{model}}-instructions.txt" -e experiments.csv -o results.csv
+```
+
+#### Templated Contexts
+
+```bash
+# Topic-specific context files
+parallamr run -p prompt.txt -c "context/{{topic}}-background.txt" -e experiments.csv -o results.csv
+
+# Multiple templated contexts
+parallamr run -p prompt.txt \
+              -c "context/{{topic}}-info.txt" \
+              -c "guides/{{provider}}-guide.txt" \
+              -e experiments.csv \
+              -o results.csv
+```
+
+#### Combined Templating
+
+```bash
+# Everything templated for maximum organization
+parallamr run -p "prompts/{{topic}}/prompt.txt" \
+              -c "context/{{topic}}-background.txt" \
+              -c "guides/{{provider}}-guide.txt" \
+              -e experiments.csv \
+              -o "outputs/{{date}}/{{provider}}/{{model}}-{{topic}}.csv"
 ```
 
 **How it works:**
-- Variables in output paths use `{{variable}}` syntax from your experiments CSV
-- Experiments are automatically grouped by their resolved output path
+- Variables use `{{variable}}` syntax from your experiments CSV columns
+- For outputs: Experiments are grouped by resolved path; each group gets its own file
+- For inputs: Each experiment loads its own files based on its variable values
 - Directories are created automatically as needed
 - Forbidden characters (like `/` in model names) are sanitized to `_`
-- Each unique output path gets its own CSV file with corresponding experiments
 
 **Example:**
 ```csv
@@ -113,15 +147,32 @@ openrouter,anthropic/claude-sonnet-4,Blockchain,2024-01-15
 ollama,llama3.2,AI,2024-01-15
 ```
 
-Running with `-o "{{provider}}/{{topic}}-results.csv"` creates:
-```
-openrouter/AI-results.csv        (1 experiment)
-openrouter/Blockchain-results.csv (1 experiment)
-ollama/AI-results.csv             (1 experiment)
+Running with templated paths creates organized structure:
+```bash
+parallamr run \
+  -p "prompts/{{topic}}-prompt.txt" \
+  -e experiments.csv \
+  -o "{{provider}}/{{topic}}-results.csv"
 ```
 
+Results in:
+```
+prompts/AI-prompt.txt               → Used for experiments with topic=AI
+prompts/Blockchain-prompt.txt       → Used for experiments with topic=Blockchain
+
+openrouter/AI-results.csv           → 1 experiment output
+openrouter/Blockchain-results.csv   → 1 experiment output
+ollama/AI-results.csv               → 1 experiment output
+```
+
+**Error Handling:**
+- Missing input files create error results (experiments continue)
+- Missing variables in templates raise clear errors
+- Path traversal attempts are detected and blocked
+
 **Security:**
-- Path traversal attempts (`../`) are detected and sanitized
+- Path traversal attempts (`../`) are detected and sanitized in filenames
+- Directory traversal in template structure is validated
 - Windows reserved names (CON, PRN, etc.) are handled safely
 - Filenames are limited to 255 characters
 - Cross-platform compatible (Windows, macOS, Linux)

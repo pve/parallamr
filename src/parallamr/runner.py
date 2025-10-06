@@ -14,7 +14,7 @@ from .path_template import PathSubstitutionError, substitute_path_template
 from .providers import MockProvider, OllamaProvider, OpenRouterProvider, Provider
 from .template import combine_files_with_variables
 from .token_counter import estimate_tokens, validate_context_window
-from .utils import format_experiment_summary, validate_output_path
+from .utils import format_experiment_summary, load_file_content, validate_output_path
 
 
 @dataclass
@@ -105,6 +105,67 @@ class ExperimentRunner:
         path_str = str(path)
         return "{{" in path_str and "}}" in path_str
 
+    def _resolve_and_load_input_files(
+        self,
+        experiment: Experiment,
+        prompt_template: Optional[str | Path],
+        context_templates: Optional[List[str | Path]],
+        read_prompt_stdin: bool
+    ) -> Tuple[str, List[Tuple[str, str]]]:
+        """
+        Resolve template variables in input file paths and load the files.
+
+        Args:
+            experiment: Experiment with variables for substitution
+            prompt_template: Prompt file path (may contain {{variables}})
+            context_templates: Context file paths (may contain {{variables}})
+            read_prompt_stdin: Whether prompt should be read from stdin
+
+        Returns:
+            Tuple of (prompt_content, context_file_contents)
+
+        Raises:
+            PathSubstitutionError: If template variables are missing or path is unsafe
+            FileNotFoundError: If resolved file doesn't exist
+        """
+        # Load prompt
+        if read_prompt_stdin:
+            prompt_content = self.file_loader.load_prompt(None, use_stdin=True)
+        elif self._has_template_variables(prompt_template):
+            # Resolve template in prompt path
+            resolved_prompt_path = substitute_path_template(
+                str(prompt_template),
+                experiment.variables
+            )
+            self.logger.debug(f"Resolved prompt path: {resolved_prompt_path}")
+            prompt_content = self.file_loader.load_prompt(resolved_prompt_path, use_stdin=False)
+        else:
+            # No template, load normally
+            prompt_content = self.file_loader.load_prompt(
+                Path(prompt_template) if prompt_template else None,
+                use_stdin=False
+            )
+
+        # Load context files
+        context_file_contents = []
+        if context_templates:
+            for context_template in context_templates:
+                if self._has_template_variables(context_template):
+                    # Resolve template in context path
+                    resolved_context_path = substitute_path_template(
+                        str(context_template),
+                        experiment.variables
+                    )
+                    self.logger.debug(f"Resolved context path: {resolved_context_path}")
+                    content = load_file_content(resolved_context_path)
+                    context_file_contents.append((str(resolved_context_path.name), content))
+                else:
+                    # No template, load normally
+                    content = load_file_content(Path(context_template))
+                    context_file_contents.append((Path(context_template).name, content))
+
+        return prompt_content, context_file_contents
+
     async def run_experiments(
         self,
         prompt_file: Optional[str | Path],
@@ -117,15 +178,15 @@ class ExperimentRunner:
         """
         Run all experiments and write results to CSV.
 
-        Supports template variable substitution in output_file path.
-        If output_file contains {{variable}}, experiments are grouped by
-        their resolved output path and written to separate files.
+        Supports template variable substitution in all file paths (prompt, context, output).
+        If any path contains {{variable}}, it will be resolved per-experiment using
+        that experiment's variables.
 
         Args:
-            prompt_file: Path to the primary prompt file, or None if reading from stdin
-            experiments_file: Path to the experiments CSV file, or None if reading from stdin
-            output_file: Path to the output CSV file (supports {{variable}} templates), or None for stdout
-            context_files: Optional list of context files to include
+            prompt_file: Path to prompt file (supports {{variable}} templates), or None for stdin
+            experiments_file: Path to experiments CSV file (NO template support)
+            output_file: Path to output CSV file (supports {{variable}} templates), or None for stdout
+            context_files: Context file paths (each supports {{variable}} templates)
             read_prompt_stdin: Whether to read prompt from stdin
             read_experiments_stdin: Whether to read experiments from stdin
 
@@ -134,16 +195,7 @@ class ExperimentRunner:
             ValueError: If configuration is invalid
             PathSubstitutionError: If template variables are missing or path is unsafe
         """
-        # Load and validate inputs using FileLoader
-        if read_prompt_stdin:
-            self.logger.info("Reading prompt from stdin")
-        else:
-            self.logger.info(f"Loading prompt from {prompt_file}")
-        primary_content = self.file_loader.load_prompt(
-            Path(prompt_file) if prompt_file else None,
-            read_prompt_stdin
-        )
-
+        # Load experiments first (always needed, no templating)
         if read_experiments_stdin:
             self.logger.info("Reading experiments from stdin")
         else:
@@ -153,30 +205,188 @@ class ExperimentRunner:
             read_experiments_stdin
         )
 
-        context_file_contents = []
-        if context_files:
-            self.logger.info(f"Loading {len(context_files)} context file(s)")
-            context_file_contents = self.file_loader.load_context(
-                [Path(f) for f in context_files]
-            )
+        # Check if ANY input path has templates
+        has_templated_prompt = self._has_template_variables(prompt_file) and not read_prompt_stdin
+        has_templated_context = any(
+            self._has_template_variables(ctx) for ctx in (context_files or [])
+        )
+        has_templated_output = self._has_template_variables(output_file)
+        has_any_templates = has_templated_prompt or has_templated_context or has_templated_output
 
-        # Check if output path contains template variables
-        if self._has_template_variables(output_file):
-            # Group experiments by resolved output path
-            await self._run_experiments_with_templated_output(
+        if has_any_templates:
+            # Per-experiment resolution (load files individually for each experiment)
+            self.logger.info("Detected templated paths - using per-experiment file resolution")
+            await self._run_experiments_with_templated_paths(
                 experiments=experiments,
-                primary_content=primary_content,
-                context_file_contents=context_file_contents,
-                output_template=str(output_file)
+                prompt_template=prompt_file,
+                context_templates=list(context_files) if context_files else None,
+                output_template=str(output_file) if output_file else None,
+                read_prompt_stdin=read_prompt_stdin
             )
         else:
-            # Original behavior: single output file
+            # Original behavior: load once, use for all experiments
+            if read_prompt_stdin:
+                self.logger.info("Reading prompt from stdin")
+            else:
+                self.logger.info(f"Loading prompt from {prompt_file}")
+            primary_content = self.file_loader.load_prompt(
+                Path(prompt_file) if prompt_file else None,
+                read_prompt_stdin
+            )
+
+            context_file_contents = []
+            if context_files:
+                self.logger.info(f"Loading {len(context_files)} context file(s)")
+                context_file_contents = self.file_loader.load_context(
+                    [Path(f) for f in context_files]
+                )
+
             await self._run_experiments_to_single_output(
                 experiments=experiments,
                 primary_content=primary_content,
                 context_file_contents=context_file_contents,
                 output_file=output_file
             )
+
+    async def _run_experiments_with_templated_paths(
+        self,
+        experiments: List[Experiment],
+        prompt_template: Optional[str | Path],
+        context_templates: Optional[List[str | Path]],
+        output_template: Optional[str],
+        read_prompt_stdin: bool
+    ) -> None:
+        """
+        Run experiments with template variable substitution in input/output paths.
+
+        For each experiment, resolves templates, loads files, and runs the experiment.
+        Handles missing files gracefully by creating error results.
+        """
+        # Group by output path if output is templated
+        if output_template and self._has_template_variables(output_template):
+            # Group experiments by resolved output path
+            output_groups: Dict[Path, List[Experiment]] = defaultdict(list)
+
+            for experiment in experiments:
+                try:
+                    resolved_path = substitute_path_template(
+                        output_template,
+                        experiment.variables
+                    )
+                    output_groups[resolved_path].append(experiment)
+                except PathSubstitutionError as e:
+                    self.logger.error(f"Failed to resolve output path for experiment {experiment.row_number}: {e}")
+                    continue
+
+            # Create directories for output paths
+            for output_path in output_groups.keys():
+                if output_path.parent != Path('.'):
+                    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Run experiments grouped by output file
+            total_experiments = len(experiments)
+            experiment_counter = 0
+
+            for output_path, exp_group in output_groups.items():
+                self.logger.info(f"Writing {len(exp_group)} experiment(s) to {output_path}")
+                csv_writer = IncrementalCSVWriter(output_path)
+
+                for experiment in exp_group:
+                    experiment_counter += 1
+                    result = await self._run_single_experiment_with_templated_inputs(
+                        experiment=experiment,
+                        prompt_template=prompt_template,
+                        context_templates=context_templates,
+                        read_prompt_stdin=read_prompt_stdin,
+                        experiment_num=experiment_counter,
+                        total=total_experiments
+                    )
+                    csv_writer.write_result(result)
+
+                csv_writer.close()
+
+            self.logger.info(f"All experiments completed. Results written to {len(output_groups)} file(s)")
+
+        else:
+            # Single output file, but inputs may be templated
+            output_path = validate_output_path(output_template)
+            csv_writer = IncrementalCSVWriter(output_path)
+
+            total_experiments = len(experiments)
+            for i, experiment in enumerate(experiments, 1):
+                result = await self._run_single_experiment_with_templated_inputs(
+                    experiment=experiment,
+                    prompt_template=prompt_template,
+                    context_templates=context_templates,
+                    read_prompt_stdin=read_prompt_stdin,
+                    experiment_num=i,
+                    total=total_experiments
+                )
+                csv_writer.write_result(result)
+
+            csv_writer.close()
+
+            if output_path:
+                self.logger.info(f"All experiments completed. Results written to {output_path}")
+            else:
+                self.logger.info("All experiments completed")
+
+    async def _run_single_experiment_with_templated_inputs(
+        self,
+        experiment: Experiment,
+        prompt_template: Optional[str | Path],
+        context_templates: Optional[List[str | Path]],
+        read_prompt_stdin: bool,
+        experiment_num: int,
+        total: int
+    ) -> ExperimentResult:
+        """
+        Run a single experiment with template resolution for input files.
+
+        Handles file loading errors gracefully by creating error results.
+        """
+        self.logger.info(f"Starting experiment {experiment_num}/{total}: {experiment.provider}/{experiment.model}")
+
+        try:
+            # Resolve and load input files for this experiment
+            primary_content, context_file_contents = self._resolve_and_load_input_files(
+                experiment=experiment,
+                prompt_template=prompt_template,
+                context_templates=context_templates,
+                read_prompt_stdin=read_prompt_stdin
+            )
+
+            # Run the experiment
+            result = await self._run_single_experiment(
+                experiment=experiment,
+                primary_content=primary_content,
+                context_files=context_file_contents,
+            )
+
+        except (FileNotFoundError, PathSubstitutionError) as e:
+            # File loading error - create error result
+            self.logger.error(f"File loading error for experiment {experiment_num}: {e}")
+            result = self._create_error_result(
+                experiment,
+                f"File loading error: {str(e)}"
+            )
+        except Exception as e:
+            # Unexpected error
+            self.logger.exception(f"Unexpected error in experiment {experiment_num}")
+            result = self._create_error_result(
+                experiment,
+                f"Unexpected error: {str(e)}"
+            )
+
+        self.logger.info(f"Completed experiment {experiment_num}/{total}: status={result.status.value}")
+
+        if result.error_message:
+            if result.status == ExperimentStatus.WARNING:
+                self.logger.warning(f"Experiment {experiment_num} warning: {result.error_message}")
+            else:
+                self.logger.error(f"Experiment {experiment_num} error: {result.error_message}")
+
+        return result
 
     async def _run_experiments_to_single_output(
         self,

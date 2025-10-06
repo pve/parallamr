@@ -202,24 +202,26 @@ def substitute_path_template(
     if base_dir is not None:
         safe_path = base_dir / safe_path
 
-    # Validate no path traversal attempts
-    try:
-        # Get the directory we should be within
-        allowed_base = base_dir.resolve() if base_dir else Path.cwd().resolve()
+    # Validate no path traversal attempts (only for relative paths)
+    # Absolute paths are allowed (user explicitly specified them)
+    if not safe_path.is_absolute():
+        try:
+            # Get the directory we should be within
+            allowed_base = base_dir.resolve() if base_dir else Path.cwd().resolve()
 
-        # For validation, resolve the path relative to allowed_base
-        if base_dir is not None:
-            test_path = safe_path.resolve()
-        else:
-            test_path = (Path.cwd() / safe_path).resolve()
+            # For validation, resolve the path relative to allowed_base
+            if base_dir is not None:
+                test_path = safe_path.resolve()
+            else:
+                test_path = (Path.cwd() / safe_path).resolve()
 
-        # Check if resolved path is within allowed base
-        test_path.relative_to(allowed_base)
+            # Check if resolved path is within allowed base
+            test_path.relative_to(allowed_base)
 
-    except ValueError:
-        # relative_to() raises ValueError if path is not relative to base
-        raise PathSubstitutionError(
-            f"Path traversal detected: resolved path escapes base directory"
-        )
+        except ValueError:
+            # relative_to() raises ValueError if path is not relative to base
+            raise PathSubstitutionError(
+                f"Path traversal detected: resolved path escapes base directory"
+            )
 
     return safe_path

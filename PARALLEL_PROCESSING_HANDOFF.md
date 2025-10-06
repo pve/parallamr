@@ -430,7 +430,6 @@ uv run pytest --cov  # Should show: 82%
 ## Contact & References
 
 - **Hive Mind Analysis:** `/workspaces/parallamr/analysis-reports/`
-- **Issue Tracker:** `/workspaces/parallamr/issues.txt`
 - **Test Files:** All new tests in `tests/test_*_*.py`
 - **Coverage Reports:** `htmlcov/index.html` (run pytest --cov)
 
