@@ -1,0 +1,75 @@
+{
+  "development_principles": {
+    "methodology": "TDD (Test-Driven Development)",
+    "description": "Always write tests first, then implement features. Ensure high test coverage (>80%) for all new code.",
+    "workflow": [
+      "1. Write failing tests that define the desired behavior",
+      "2. Implement the minimum code needed to make tests pass",
+      "3. Refactor while keeping tests green",
+      "4. Verify all existing tests still pass"
+    ]
+  },
+  "versioning": {
+    "strategy": "Semantic Versioning (SemVer)",
+    "format": "MAJOR.MINOR.PATCH",
+    "rules": {
+      "MAJOR": "Incompatible API changes, breaking changes",
+      "MINOR": "New functionality, backward compatible",
+      "PATCH": "Bug fixes, backward compatible"
+    },
+    "guidelines": [
+      "Bump MINOR for new features (even if backward compatible)",
+      "Bump PATCH for bug fixes only",
+      "Always update both __init__.py and pyproject.toml",
+      "Commit version bump separately with clear message"
+    ]
+  },
+  "agent_deployment": {
+    "strategy": "Aggressive and Automatic",
+    "principles": [
+      "Deploy agents proactively whenever tasks can be parallelized",
+      "Use Claude Code's Task tool to spawn ALL agents concurrently in a SINGLE message",
+      "Never deploy agents sequentially - batch ALL Task calls together",
+      "Each agent should have a clear, autonomous objective",
+      "Agents should coordinate via shared memory and consensus mechanisms"
+    ],
+    "when_to_deploy": [
+      "Complex multi-step tasks requiring different expertise",
+      "Research tasks that can be parallelized",
+      "Code review and testing can run concurrently",
+      "Analysis tasks that benefit from multiple perspectives"
+    ],
+    "deployment_pattern": {
+      "correct": "Single message with multiple Task() calls for concurrent execution",
+      "incorrect": "Sequential messages with one Task() call each"
+    }
+  },
+  "best_practices": {
+    "testing": [
+      "Maintain >80% code coverage",
+      "Test edge cases and error conditions",
+      "Use fixtures for test data",
+      "Mock external dependencies"
+    ],
+    "commits": [
+      "Follow conventional commit format",
+      "Include emoji for better readability (🤖 for AI-generated)",
+      "Always include Co-Authored-By: Claude",
+      "Keep commits atomic and focused"
+    ],
+    "documentation": [
+      "Update README for all user-facing changes",
+      "Add docstrings to all new functions/classes",
+      "Include usage examples in documentation",
+      "Document security considerations"
+    ]
+  },
+  "hive_mind_protocols": {
+    "collective_intelligence": "Use consensus voting for major decisions",
+    "memory_sharing": "Store all important decisions in shared memory with timestamps",
+    "worker_coordination": "Delegate implementation details to specialized workers",
+    "learning": "Adapt strategies based on successful patterns from previous tasks"
+  },
+  "timestamp": "2025-10-06T15:00:00Z",
+  "version": "1.0.0"
+}
