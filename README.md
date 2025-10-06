@@ -82,6 +82,50 @@ parallamr run -p prompt.txt -e experiments.csv -o results.csv --validate-only
 parallamr run -p prompt.txt -e experiments.csv -o results.csv --verbose
 ```
 
+### Templated Output Paths
+
+Organize experiment results automatically by using template variables in output filenames:
+
+```bash
+# Separate files by topic
+parallamr run -p prompt.txt -e experiments.csv -o "results-{{topic}}.csv"
+
+# Organize by provider and model
+parallamr run -p prompt.txt -e experiments.csv -o "{{provider}}/{{model}}-output.csv"
+
+# Complex organization with subdirectories
+parallamr run -p prompt.txt -e experiments.csv -o "experiments/{{date}}/{{provider}}/{{model}}-{{topic}}.csv"
+```
+
+**How it works:**
+- Variables in output paths use `{{variable}}` syntax from your experiments CSV
+- Experiments are automatically grouped by their resolved output path
+- Directories are created automatically as needed
+- Forbidden characters (like `/` in model names) are sanitized to `_`
+- Each unique output path gets its own CSV file with corresponding experiments
+
+**Example:**
+```csv
+# experiments.csv
+provider,model,topic,date
+openrouter,anthropic/claude-sonnet-4,AI,2024-01-15
+openrouter,anthropic/claude-sonnet-4,Blockchain,2024-01-15
+ollama,llama3.2,AI,2024-01-15
+```
+
+Running with `-o "{{provider}}/{{topic}}-results.csv"` creates:
+```
+openrouter/AI-results.csv        (1 experiment)
+openrouter/Blockchain-results.csv (1 experiment)
+ollama/AI-results.csv             (1 experiment)
+```
+
+**Security:**
+- Path traversal attempts (`../`) are detected and sanitized
+- Windows reserved names (CON, PRN, etc.) are handled safely
+- Filenames are limited to 255 characters
+- Cross-platform compatible (Windows, macOS, Linux)
+
 ## File Formats
 
 ### Prompt File (prompt.txt)

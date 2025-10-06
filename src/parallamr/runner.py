@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -9,6 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from .csv_writer import IncrementalCSVWriter
 from .file_loader import FileLoader
 from .models import Experiment, ExperimentResult, ExperimentStatus
+from .path_template import PathSubstitutionError, substitute_path_template
 from .providers import MockProvider, OllamaProvider, OpenRouterProvider, Provider
 from .template import combine_files_with_variables
 from .token_counter import estimate_tokens, validate_context_window
@@ -96,6 +98,13 @@ class ExperimentRunner:
         # Prevent propagation to root logger
         self.logger.propagate = False
 
+    def _has_template_variables(self, path: Optional[str | Path]) -> bool:
+        """Check if a path contains template variables {{}}."""
+        if path is None:
+            return False
+        path_str = str(path)
+        return "{{" in path_str and "}}" in path_str
+
     async def run_experiments(
         self,
         prompt_file: Optional[str | Path],
@@ -108,10 +117,14 @@ class ExperimentRunner:
         """
         Run all experiments and write results to CSV.
 
+        Supports template variable substitution in output_file path.
+        If output_file contains {{variable}}, experiments are grouped by
+        their resolved output path and written to separate files.
+
         Args:
             prompt_file: Path to the primary prompt file, or None if reading from stdin
             experiments_file: Path to the experiments CSV file, or None if reading from stdin
-            output_file: Path to the output CSV file, or None for stdout
+            output_file: Path to the output CSV file (supports {{variable}} templates), or None for stdout
             context_files: Optional list of context files to include
             read_prompt_stdin: Whether to read prompt from stdin
             read_experiments_stdin: Whether to read experiments from stdin
@@ -119,6 +132,7 @@ class ExperimentRunner:
         Raises:
             FileNotFoundError: If input files don't exist
             ValueError: If configuration is invalid
+            PathSubstitutionError: If template variables are missing or path is unsafe
         """
         # Load and validate inputs using FileLoader
         if read_prompt_stdin:
@@ -146,6 +160,32 @@ class ExperimentRunner:
                 [Path(f) for f in context_files]
             )
 
+        # Check if output path contains template variables
+        if self._has_template_variables(output_file):
+            # Group experiments by resolved output path
+            await self._run_experiments_with_templated_output(
+                experiments=experiments,
+                primary_content=primary_content,
+                context_file_contents=context_file_contents,
+                output_template=str(output_file)
+            )
+        else:
+            # Original behavior: single output file
+            await self._run_experiments_to_single_output(
+                experiments=experiments,
+                primary_content=primary_content,
+                context_file_contents=context_file_contents,
+                output_file=output_file
+            )
+
+    async def _run_experiments_to_single_output(
+        self,
+        experiments: List[Experiment],
+        primary_content: str,
+        context_file_contents: List[Tuple[str, str]],
+        output_file: Optional[str | Path]
+    ) -> None:
+        """Run experiments and write to a single output file."""
         # Validate output path
         output_path = validate_output_path(output_file)
         csv_writer = IncrementalCSVWriter(output_path)
@@ -180,10 +220,82 @@ class ExperimentRunner:
                 else:
                     self.logger.error(f"Experiment {i} error: {result.error_message}")
 
+        # Close writer
+        csv_writer.close()
+
         if output_path:
             self.logger.info(f"All experiments completed. Results written to {output_path}")
         else:
             self.logger.info("All experiments completed")
+
+    async def _run_experiments_with_templated_output(
+        self,
+        experiments: List[Experiment],
+        primary_content: str,
+        context_file_contents: List[Tuple[str, str]],
+        output_template: str
+    ) -> None:
+        """Run experiments with template variable substitution in output paths."""
+        # Group experiments by their resolved output path
+        output_groups: Dict[Path, List[Experiment]] = defaultdict(list)
+
+        for experiment in experiments:
+            try:
+                resolved_path = substitute_path_template(
+                    output_template,
+                    experiment.variables
+                )
+                output_groups[resolved_path].append(experiment)
+            except PathSubstitutionError as e:
+                self.logger.error(f"Failed to resolve output path for experiment {experiment.row_number}: {e}")
+                # Create error result for this experiment
+                error_result = self._create_error_result(experiment, str(e))
+                # Since we can't determine output file, log the error but continue
+                continue
+
+        # Log summary
+        total_experiments = len(experiments)
+        num_output_files = len(output_groups)
+        self.logger.info(f"Running {total_experiments} experiments across {num_output_files} output file(s)")
+
+        # Create directories for all output paths
+        for output_path in output_groups.keys():
+            if output_path.parent != Path('.'):
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                self.logger.info(f"Created directory: {output_path.parent}")
+
+        # Run experiments grouped by output file
+        experiment_counter = 0
+        for output_path, exp_group in output_groups.items():
+            self.logger.info(f"Writing {len(exp_group)} experiment(s) to {output_path}")
+            csv_writer = IncrementalCSVWriter(output_path)
+
+            for experiment in exp_group:
+                experiment_counter += 1
+                self.logger.info(f"Starting experiment {experiment_counter}/{total_experiments}: {experiment.provider}/{experiment.model}")
+
+                result = await self._run_single_experiment(
+                    experiment=experiment,
+                    primary_content=primary_content,
+                    context_files=context_file_contents,
+                )
+
+                # Write result immediately
+                csv_writer.write_result(result)
+
+                self.logger.info(f"Completed experiment {experiment_counter}/{total_experiments}: status={result.status.value}")
+
+                # Log any warnings or errors
+                if result.error_message:
+                    if result.status == ExperimentStatus.WARNING:
+                        self.logger.warning(f"Experiment {experiment_counter} warning: {result.error_message}")
+                    else:
+                        self.logger.error(f"Experiment {experiment_counter} error: {result.error_message}")
+
+            # Close writer for this output file
+            csv_writer.close()
+
+        self.logger.info(f"All experiments completed. Results written to {num_output_files} file(s)")
 
     def _get_provider(self, experiment: Experiment) -> Optional[Provider]:
         """
