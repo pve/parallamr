@@ -4,7 +4,7 @@ A command-line tool for running systematic experiments across multiple LLM provi
 
 ## Features
 
-- **Multi-Provider Support**: OpenRouter, Ollama, and Mock providers
+- **Multi-Provider Support**: OpenAI, OpenRouter, Ollama, and Mock providers
 - **Template Variables**: Dynamic prompt customization with `{{variable}}` syntax
 - **Incremental CSV Output**: Real-time results writing for monitoring progress
 - **Context Window Validation**: Automatic token counting and validation
@@ -199,7 +199,7 @@ ollama,llama3.2,Database,Natural Language Processing
 ```
 
 **Required columns:**
-- `provider`: LLM provider (mock, openrouter, ollama)
+- `provider`: LLM provider (openai, openrouter, ollama, mock)
 - `model`: Model identifier
 
 **Optional columns:**
@@ -223,6 +223,9 @@ The output CSV contains all input columns plus:
 ### Environment Variables (.env)
 
 ```bash
+# OpenAI
+OPENAI_API_KEY=sk-proj-your-api-key-here
+
 # OpenRouter
 OPENROUTER_API_KEY=sk-or-v1-your-api-key-here
 
@@ -235,8 +238,53 @@ DEFAULT_TIMEOUT=300
 
 ### Provider Configuration
 
+#### OpenAI
+
+Supports official OpenAI API and OpenAI-compatible providers (Azure OpenAI, LocalAI, Together AI, Groq, etc.).
+
+**Basic Configuration:**
+```bash
+OPENAI_API_KEY=sk-proj-your-key-here
+```
+
+**Azure OpenAI Configuration:**
+```bash
+OPENAI_API_KEY=your-azure-key
+OPENAI_BASE_URL=https://your-resource.openai.azure.com/openai/deployments/your-deployment
+```
+
+**LocalAI / Together AI / Other Compatible Providers:**
+```bash
+OPENAI_API_KEY=your-api-key
+OPENAI_BASE_URL=http://localhost:8080/v1  # LocalAI
+# OR
+OPENAI_BASE_URL=https://api.together.xyz/v1  # Together AI
+```
+
+**Supported Models:**
+- GPT-4o: `gpt-4o`, `gpt-4o-mini` (128K context)
+- GPT-4 Turbo: `gpt-4-turbo`, `gpt-4-turbo-preview` (128K context)
+- GPT-4: `gpt-4`, `gpt-4-32k` (8K / 32K context)
+- GPT-3.5: `gpt-3.5-turbo`, `gpt-3.5-turbo-16k` (16K context)
+
+**Example Usage:**
+```csv
+provider,model,topic
+openai,gpt-4o-mini,Machine Learning
+openai,gpt-4-turbo,Neural Networks
+openai,gpt-3.5-turbo,Deep Learning
+```
+
+#### OpenRouter
+
 - **openrouter**: Requires `OPENROUTER_API_KEY`
+
+#### Ollama
+
 - **ollama**: Requires `OLLAMA_BASE_URL` (default: http://localhost:11434)
+
+#### Mock
+
 - **mock**: No configuration required (for testing)
 
 ## Available Commands
@@ -250,6 +298,7 @@ parallamr providers
 ### List Models
 
 ```bash
+parallamr models openai
 parallamr models openrouter
 parallamr models ollama
 ```
@@ -259,6 +308,53 @@ parallamr models ollama
 ```bash
 parallamr init [--output experiments.csv]
 ```
+
+## Troubleshooting
+
+### OpenAI Provider
+
+**"Authentication failed - invalid API key"**
+- Verify your API key starts with `sk-proj-` or `sk-`
+- Check that `OPENAI_API_KEY` is set in your `.env` file
+- Ensure the API key has not expired
+
+**"Rate limit exceeded - please wait and retry"**
+- You've hit OpenAI's rate limits for your tier
+- Wait a few minutes and try again
+- Consider upgrading your OpenAI tier for higher limits
+- Reduce the number of parallel experiments
+
+**"Request too large - input exceeds model context window"**
+- Your prompt + context files exceed the model's context window
+- Use a model with a larger context window (e.g., `gpt-4-turbo` with 128K)
+- Reduce the size of your prompt or context files
+- Check token counts with `--validate-only`
+
+**"Model or endpoint not found"**
+- Verify the model name is correct (e.g., `gpt-4o-mini`, not `gpt-4-mini`)
+- Check that the model is available for your API key
+- For Azure OpenAI, ensure your deployment name is correct
+
+**Azure OpenAI Connection Issues**
+- Verify your `OPENAI_BASE_URL` includes the full deployment path
+- Ensure you're using your Azure API key, not an OpenAI key
+- Check that the `api-version` parameter is in the URL if required
+
+**LocalAI / Together AI Connection Issues**
+- Verify the base URL is accessible (`curl http://localhost:8080/v1/models`)
+- Check that the service is running and accepting connections
+- Ensure the API key format matches the provider's requirements
+
+### General Issues
+
+**"No module named 'parallamr'"**
+- Install the package: `pip install -e .`
+- Activate your virtual environment
+
+**CSV Formatting Errors**
+- Ensure your experiments.csv has `provider` and `model` columns
+- Check for proper CSV quoting if cells contain commas
+- Verify the file encoding is UTF-8
 
 ## Development
 

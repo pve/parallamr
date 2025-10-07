@@ -11,7 +11,7 @@ from .csv_writer import IncrementalCSVWriter
 from .file_loader import FileLoader
 from .models import Experiment, ExperimentResult, ExperimentStatus
 from .path_template import PathSubstitutionError, substitute_path_template
-from .providers import MockProvider, OllamaProvider, OpenRouterProvider, Provider
+from .providers import MockProvider, OllamaProvider, OpenAIProvider, OpenRouterProvider, Provider
 from .template import combine_files_with_variables
 from .token_counter import estimate_tokens, validate_context_window
 from .utils import format_experiment_summary, load_file_content, validate_output_path
@@ -80,6 +80,7 @@ class ExperimentRunner:
             "mock": MockProvider(timeout=timeout),
             "openrouter": OpenRouterProvider(timeout=timeout),
             "ollama": OllamaProvider(timeout=timeout),
+            "openai": OpenAIProvider(timeout=timeout),
         }
 
     def _setup_logging(self) -> None:
