@@ -41,7 +41,7 @@ mock,mock,AI"""
         assert output_file.exists()
 
         # Read and verify CSV
-        with open(output_file, 'r', newline='', encoding='utf-8-sig') as file:
+        with open(output_file, 'r', newline='') as file:
             reader = csv.DictReader(file)
             rows = list(reader)
 
@@ -83,7 +83,7 @@ mock,mock,AI"""
         assert output_file.exists()
 
         # Read and verify CSV
-        with open(output_file, 'r', newline='', encoding='utf-8-sig') as file:
+        with open(output_file, 'r', newline='') as file:
             reader = csv.DictReader(file)
             rows = list(reader)
 
@@ -124,7 +124,7 @@ mock,mock,NLP"""
         assert output_file.exists()
 
         # Read and verify CSV
-        with open(output_file, 'r', newline='', encoding='utf-8-sig') as file:
+        with open(output_file, 'r', newline='') as file:
             reader = csv.DictReader(file)
             rows = list(reader)
 
@@ -186,7 +186,7 @@ mock,mock,test2"""
         writer.write_result(result)
 
         # Verify file
-        with open(output_file, 'r', newline='', encoding='utf-8-sig') as file:
+        with open(output_file, 'r', newline='') as file:
             reader = csv.DictReader(file)
             rows = list(reader)
 
@@ -217,7 +217,7 @@ mock,mock,test2"""
         writer.write_result(result)
 
         # Check column order
-        with open(output_file, 'r', newline='', encoding='utf-8-sig') as file:
+        with open(output_file, 'r', newline='') as file:
             reader = csv.reader(file)
             headers = next(reader)
 
@@ -255,7 +255,7 @@ mock,mock,test2"""
         writer.write_result(result)
 
         # Verify output is cleaned
-        with open(output_file, 'r', newline='', encoding='utf-8-sig') as file:
+        with open(output_file, 'r', newline='') as file:
             reader = csv.DictReader(file)
             rows = list(reader)
 
@@ -297,7 +297,7 @@ mock,mock,AI"""
         assert output_file.exists()
 
         # Read and verify
-        with open(output_file, 'r', newline='', encoding='utf-8-sig') as file:
+        with open(output_file, 'r', newline='') as file:
             reader = csv.DictReader(file)
             rows = list(reader)
 
@@ -335,7 +335,7 @@ mock,mock,Robotics"""
         # Verify all experiments completed
         assert output_file.exists()
 
-        with open(output_file, 'r', newline='', encoding='utf-8-sig') as file:
+        with open(output_file, 'r', newline='') as file:
             reader = csv.DictReader(file)
             rows = list(reader)
 
@@ -367,7 +367,7 @@ mock,mock,Robotics"""
         writer.write_result(result)
 
         # Verify conflict resolution
-        with open(output_file, 'r', newline='', encoding='utf-8-sig') as file:
+        with open(output_file, 'r', newline='') as file:
             reader = csv.DictReader(file)
             rows = list(reader)
 

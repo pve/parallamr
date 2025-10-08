@@ -14,7 +14,7 @@
     "ghcr.io/devcontainers-extra/features/uv:1": {}
 
   },
-  "postCreateCommand": "npm install -g @anthropic-ai/claude-code",
+  "postCreateCommand": "curl -fsSL https://ollama.com/install.sh | sh && npm install -g @anthropic-ai/claude-code",
   "mounts": [
     "source=${localEnv:HOME}/.bashrc,target=/home/vscode/.bashrc,type=bind",
   //  "source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind"

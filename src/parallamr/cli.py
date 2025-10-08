@@ -334,7 +334,8 @@ def init(output: Path) -> None:
     experiments_content = """provider,model,source,topic
 mock,mock,Wikipedia,AI
 openrouter,anthropic/claude-sonnet-4,Encyclopedia,Machine Learning
-ollama,llama3.2,Database,Natural Language Processing"""
+ollama,llama3.1:latest,Database,Natural Language Processing
+openai,gpt-4o-mini,google,AI"""
 
     output.write_text(experiments_content, encoding='utf-8')
     click.echo(f"✅ Created example experiments file: {output}")

@@ -115,7 +115,7 @@ class IncrementalCSVWriter:
         else:
             # Open file handle for persistent use
             if self._file_handle is None:
-                self._file_handle = open(self.output_path, 'w', newline='', encoding='utf-8-sig')
+                self._file_handle = open(self.output_path, 'w', newline='')
             writer = csv.DictWriter(self._file_handle, fieldnames=self._fieldnames, dialect='excel')
             writer.writeheader()
             self._file_handle.flush()
@@ -197,7 +197,7 @@ class IncrementalCSVWriter:
             return None
 
         try:
-            with open(self.output_path, 'r', newline='', encoding='utf-8-sig') as file:
+            with open(self.output_path, 'r', newline='') as file:
                 reader = csv.reader(file)
                 headers = next(reader, None)
                 return headers if headers else None

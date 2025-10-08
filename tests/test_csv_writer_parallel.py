@@ -115,7 +115,7 @@ class TestThreadSafety:
         writer.close()
 
         # Verify all rows written without corruption
-        with open(output_file, 'r', newline='', encoding='utf-8-sig') as f:
+        with open(output_file, 'r', newline='') as f:
             reader = csv.DictReader(f)
             rows = list(reader)
 
@@ -155,7 +155,7 @@ class TestThreadSafety:
         writer.close()
 
         # Read raw file to check for interleaving
-        with open(output_file, 'r', encoding='utf-8-sig') as f:
+        with open(output_file, 'r') as f:
             lines = f.readlines()
 
         # Should have header + 50 data rows = 51 lines
@@ -217,7 +217,7 @@ class TestContextManager:
         assert writer._file_handle.closed
 
         # File should still be readable and contain the row
-        with open(output_file, 'r', encoding='utf-8-sig') as f:
+        with open(output_file, 'r') as f:
             rows = list(csv.DictReader(f))
         assert len(rows) == 1
 
@@ -350,7 +350,7 @@ class TestBackwardCompatibility:
         writer.write_results(results)
         writer.close()
 
-        with open(output_file, 'r', encoding='utf-8-sig') as f:
+        with open(output_file, 'r') as f:
             rows = list(csv.DictReader(f))
         assert len(rows) == 3
 
@@ -426,7 +426,7 @@ class TestEdgeCases:
         writer.close()
 
         # Verify all rows written
-        with open(output_file, 'r', encoding='utf-8-sig') as f:
+        with open(output_file, 'r') as f:
             rows = list(csv.DictReader(f))
 
         assert len(rows) == num_threads * writes_per_thread
@@ -463,7 +463,7 @@ class TestEdgeCases:
         writer.close()
 
         # Verify Unicode preserved
-        with open(output_file, 'r', encoding='utf-8-sig') as f:
+        with open(output_file, 'r') as f:
             content = f.read()
             assert "世界" in content
             assert "😀" in content
