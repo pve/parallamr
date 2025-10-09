@@ -177,13 +177,13 @@ class IncrementalCSVWriter:
             self._file_handle = None
             self._closed = False
 
-    def __enter__(self):
-        """Enter context manager."""
+    async def __aenter__(self):
+        """Enter async context manager."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Exit context manager and close file handle."""
-        self.close()
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Exit async context manager and close file handle."""
+        await self.close()
         return False
 
     def get_existing_fieldnames(self) -> Optional[List[str]]:
