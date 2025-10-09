@@ -464,10 +464,10 @@ mock,mock,technical,detailed
 ### Example 3: Multi-Provider Testing
 
 ```csv
-provider,model,temperature,max_tokens
-openrouter,anthropic/claude-sonnet-4,0.7,1000
-ollama,llama3.2,0.7,1000
-mock,mock,0.7,1000
+provider,model
+openrouter,anthropic/claude-sonnet-4
+ollama,llama3.3:latest
+mock,mock
 ```
 
 ## Contributing
@@ -478,6 +478,14 @@ mock,mock,0.7,1000
 4. Add tests for new functionality
 5. Run the test suite
 6. Submit a pull request
+
+## using claude-flow
+
+What seems to work quite nicely is:
+
+```
+
+```
 
 ## License
 
