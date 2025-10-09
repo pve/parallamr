@@ -298,7 +298,7 @@ def providers() -> None:
 
 
 @cli.command()
-@click.argument("provider", type=click.Choice(["openrouter", "ollama"]))
+@click.argument("provider", type=click.Choice(["openai", "openrouter", "ollama"]))
 def models(provider: str) -> None:
     """List available models for a specific provider."""
     asyncio.run(_list_models(provider))
