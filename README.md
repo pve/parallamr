@@ -481,10 +481,10 @@ mock,mock
 
 ## using claude-flow
 
-What seems to work quite nicely is:
+What seems to work quite nicely is, for example:
 
 ```
-
+npx claude-flow@alpha hive-mind spawn "implement git issue 21" --claude
 ```
 
 ## License
