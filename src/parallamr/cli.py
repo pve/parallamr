@@ -269,10 +269,18 @@ def providers() -> None:
     # List available provider types (don't instantiate to avoid API key errors)
     click.echo("Available providers:")
     click.echo("  - mock")
+    click.echo("  - openai")
     click.echo("  - openrouter")
     click.echo("  - ollama")
 
     click.echo("\nConfiguration:")
+
+    # Check OpenAI
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if openai_key:
+        click.echo("  ✅ OpenAI: API key configured")
+    else:
+        click.echo("  ❌ OpenAI: API key not found (set OPENAI_API_KEY)")
 
     # Check OpenRouter
     openrouter_key = os.getenv("OPENROUTER_API_KEY")
