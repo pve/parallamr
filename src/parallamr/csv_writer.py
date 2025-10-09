@@ -32,10 +32,10 @@ class IncrementalCSVWriter:
         self._lock = asyncio.Lock()  # Async lock for concurrent coroutine safety
         self._closed = False
 
-    def write_result(self, result: ExperimentResult) -> None:
+    async def write_result(self, result: ExperimentResult) -> None:
         """
         Append a single result row to the CSV file.
-        Thread-safe with locking.
+        Async-safe with locking for concurrent coroutines.
 
         Args:
             result: ExperimentResult to write to CSV
@@ -43,7 +43,7 @@ class IncrementalCSVWriter:
         Raises:
             ValueError: If writer is closed
         """
-        with self._lock:
+        async with self._lock:
             if self._closed and not self._is_stdout:
                 raise ValueError("Cannot write to closed CSV writer")
 
