@@ -262,7 +262,7 @@ class TestIncrementalCSVWriter:
         assert is_compatible is True
         assert error is None
 
-    def test_validate_compatibility_different_structure(self, tmp_path):
+    async def test_validate_compatibility_different_structure(self, tmp_path):
         """Test compatibility validation with different structure."""
         output_file = tmp_path / "test_output.csv"
 
@@ -281,7 +281,7 @@ class TestIncrementalCSVWriter:
         )
 
         writer = IncrementalCSVWriter(output_file)
-        writer.write_result(result1)
+        await writer.write_result(result1)
 
         # Test compatibility with different structure
         result2 = ExperimentResult(
