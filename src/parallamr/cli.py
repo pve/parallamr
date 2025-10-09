@@ -22,7 +22,10 @@ def create_experiment_runner(
     providers: Optional[Dict[str, Provider]] = None,
     file_loader: Optional[FileLoader] = None,
     session: Optional[aiohttp.ClientSession] = None,
-    flatten_json: bool = False
+    flatten_json: bool = False,
+    max_concurrent: Optional[int] = None,
+    sequential: bool = False,
+    provider_concurrency: Optional[Dict[str, int]] = None
 ) -> ExperimentRunner:
     """
     Factory function to create ExperimentRunner with dependency injection.
@@ -37,6 +40,9 @@ def create_experiment_runner(
         file_loader: Optional file loader (defaults to FileLoader instance)
         session: Optional HTTP session for parallel processing
         flatten_json: Enable JSON extraction and flattening from outputs
+        max_concurrent: Global maximum concurrent experiments
+        sequential: Force sequential execution
+        provider_concurrency: Per-provider concurrency limits
 
     Returns:
         Configured ExperimentRunner instance
@@ -47,7 +53,10 @@ def create_experiment_runner(
         verbose=verbose,
         providers=providers,
         file_loader=file_loader,
-        flatten_json=flatten_json
+        flatten_json=flatten_json,
+        max_concurrent=max_concurrent,
+        sequential=sequential,
+        provider_concurrency=provider_concurrency
     )
 
     # If session provided, inject it into providers that support it
