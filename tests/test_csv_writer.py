@@ -13,7 +13,7 @@ from parallamr.models import ExperimentResult, ExperimentStatus
 class TestIncrementalCSVWriter:
     """Test incremental CSV writer."""
 
-    def test_write_single_result(self, tmp_path):
+    async def test_write_single_result(self, tmp_path):
         """Test writing a single result."""
         output_file = tmp_path / "test_output.csv"
         writer = IncrementalCSVWriter(output_file)
@@ -31,7 +31,7 @@ class TestIncrementalCSVWriter:
             error_message=None
         )
 
-        writer.write_result(result)
+        await writer.write_result(result)
 
         # Verify file was created and contains correct data
         assert output_file.exists()
