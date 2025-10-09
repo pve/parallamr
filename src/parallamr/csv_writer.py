@@ -157,21 +157,21 @@ class IncrementalCSVWriter:
         """Check if headers have been written to the file."""
         return self._headers_written
 
-    def close(self) -> None:
+    async def close(self) -> None:
         """
         Close the file handle if open.
         Idempotent - can be called multiple times safely.
         """
-        with self._lock:
+        async with self._lock:
             if self._file_handle is not None and not self._file_handle.closed:
                 self._file_handle.close()
             self._closed = True
 
-    def reset(self) -> None:
+    async def reset(self) -> None:
         """Reset the writer state (useful for testing)."""
-        with self._lock:
+        async with self._lock:
             # Close file handle before resetting
-            self.close()
+            await self.close()
             self._headers_written = False
             self._fieldnames = None
             self._file_handle = None
