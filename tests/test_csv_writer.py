@@ -49,7 +49,7 @@ class TestIncrementalCSVWriter:
         assert rows[0]["input_tokens"] == "50"
         assert rows[0]["output"] == "Test output"
 
-    def test_write_multiple_results(self, tmp_path):
+    async def test_write_multiple_results(self, tmp_path):
         """Test writing multiple results."""
         output_file = tmp_path / "test_output.csv"
         writer = IncrementalCSVWriter(output_file)
@@ -82,7 +82,7 @@ class TestIncrementalCSVWriter:
         ]
 
         for result in results:
-            writer.write_result(result)
+            await writer.write_result(result)
 
         # Verify file contains both results
         with open(output_file, 'r', newline='') as file:
