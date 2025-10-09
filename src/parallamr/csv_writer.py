@@ -1,8 +1,8 @@
 """Incremental CSV writer for experiment results."""
 
+import asyncio
 import csv
 import sys
-import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TextIO
 
@@ -14,7 +14,7 @@ class IncrementalCSVWriter:
     Handles incremental writing to CSV with proper escaping.
     Writes headers on first call, appends data subsequently.
     Supports writing to stdout by passing None as output_path.
-    Thread-safe with persistent file handle for better parallel performance.
+    Async-safe with persistent file handle for better parallel performance.
     """
 
     def __init__(self, output_path: Optional[str | Path]):
@@ -29,7 +29,7 @@ class IncrementalCSVWriter:
         self._fieldnames: Optional[List[str]] = None
         self._is_stdout = output_path is None
         self._file_handle: Optional[TextIO] = None
-        self._lock = threading.RLock()  # Reentrant lock for thread safety
+        self._lock = asyncio.Lock()  # Async lock for concurrent coroutine safety
         self._closed = False
 
     def write_result(self, result: ExperimentResult) -> None:
