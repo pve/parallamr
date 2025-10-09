@@ -326,9 +326,9 @@ class ExperimentRunner:
                     experiment_num=i,
                     total=total_experiments
                 )
-                csv_writer.write_result(result)
+                await csv_writer.write_result(result)
 
-            csv_writer.close()
+            await csv_writer.close()
 
             if output_path:
                 self.logger.info(f"All experiments completed. Results written to {output_path}")
