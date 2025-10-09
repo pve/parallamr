@@ -674,6 +674,61 @@ class ExperimentRunner:
             warnings=warnings
         )
 
+    async def _run_experiment_with_semaphore(
+        self,
+        experiment: Experiment,
+        primary_content: str,
+        context_files: List[Tuple[str, str]],
+        experiment_num: int,
+        total: int
+    ) -> ExperimentResult:
+        """
+        Run a single experiment with semaphore-based rate limiting.
+
+        This wrapper applies both provider-specific and global semaphores
+        to control concurrency and prevent rate limiting.
+
+        Args:
+            experiment: Experiment configuration
+            primary_content: Primary prompt file content
+            context_files: List of (filename, content) tuples
+            experiment_num: Experiment number for logging
+            total: Total number of experiments for logging
+
+        Returns:
+            ExperimentResult containing the execution result
+        """
+        # Get the appropriate semaphore for this provider
+        provider_semaphore = self._provider_semaphores.get(experiment.provider)
+
+        self.logger.info(f"Starting experiment {experiment_num}/{total}: {experiment.provider}/{experiment.model}")
+
+        try:
+            # Acquire both global and provider-specific semaphores
+            async with provider_semaphore:
+                if self._global_semaphore:
+                    async with self._global_semaphore:
+                        result = await self._run_single_experiment(
+                            experiment=experiment,
+                            primary_content=primary_content,
+                            context_files=context_files,
+                        )
+                else:
+                    result = await self._run_single_experiment(
+                        experiment=experiment,
+                        primary_content=primary_content,
+                        context_files=context_files,
+                    )
+
+            return result
+
+        except Exception as e:
+            self.logger.exception(f"Unexpected error in experiment {experiment_num}")
+            return self._create_error_result(
+                experiment,
+                f"Unexpected error: {str(e)}"
+            )
+
     async def _run_single_experiment(
         self,
         experiment: Experiment,
