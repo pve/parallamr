@@ -171,13 +171,22 @@ def run(
     Run experiments across multiple LLM providers and models.
 
     This command loads experiments from a CSV file and executes them
-    sequentially across the specified providers and models, writing
-    results to an output CSV file after each experiment completes.
+    concurrently across the specified providers and models, writing
+    results to an output CSV file as experiments complete.
 
     Examples:
 
-        # Basic usage
+        # Basic usage (concurrent execution with default provider limits)
         parallamr run -p prompt.txt -e experiments.csv -o results.csv
+
+        # Sequential execution (backward compatibility)
+        parallamr run -p prompt.txt -e experiments.csv -o results.csv --sequential
+
+        # Limit global concurrency
+        parallamr run -p prompt.txt -e experiments.csv -o results.csv --max-concurrent 5
+
+        # Custom provider-specific limits
+        parallamr run -p prompt.txt -e experiments.csv -o results.csv --openrouter-concurrency 5 --ollama-concurrency 2
 
         # With JSON flattening
         parallamr run -p prompt.txt -e experiments.csv -o results.csv --flatten
