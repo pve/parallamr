@@ -68,10 +68,11 @@ class ExperimentRunner:
         # Use injected file loader or create default
         self.file_loader = file_loader or FileLoader()
 
+        # Setup logging first (needed for concurrency setup)
+        self._setup_logging()
+
         # Setup concurrency control
         self._setup_concurrency(max_concurrent, sequential, provider_concurrency)
-
-        self._setup_logging()
 
     def _create_default_providers(self, timeout: int) -> Dict[str, Provider]:
         """
