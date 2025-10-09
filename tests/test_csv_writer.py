@@ -160,7 +160,7 @@ class TestIncrementalCSVWriter:
         assert "var1" in headers
         assert "var2" in headers
 
-    def test_write_results_batch(self, tmp_path):
+    async def test_write_results_batch(self, tmp_path):
         """Test writing multiple results in a batch."""
         output_file = tmp_path / "test_output.csv"
         writer = IncrementalCSVWriter(output_file)
@@ -192,7 +192,7 @@ class TestIncrementalCSVWriter:
             )
         ]
 
-        writer.write_results(results)
+        await writer.write_results(results)
 
         # Verify both results were written
         with open(output_file, 'r', newline='') as file:
