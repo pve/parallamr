@@ -423,7 +423,7 @@ class ExperimentRunner:
             )
 
             # Write result immediately
-            csv_writer.write_result(result)
+            await csv_writer.write_result(result)
 
             self.logger.info(f"Completed experiment {i}/{total_experiments}: status={result.status.value}")
 
