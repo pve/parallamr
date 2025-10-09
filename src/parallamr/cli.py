@@ -231,8 +231,23 @@ def run(
             click.echo(f"Error: Experiments file not found: {experiments}", err=True)
             sys.exit(1)
 
+    # Build provider concurrency limits
+    provider_concurrency = {
+        "openrouter": openrouter_concurrency,
+        "ollama": ollama_concurrency,
+        "openai": openai_concurrency,
+        "mock": mock_concurrency
+    }
+
     # Create runner using factory
-    runner = create_experiment_runner(timeout=timeout, verbose=verbose, flatten_json=flatten)
+    runner = create_experiment_runner(
+        timeout=timeout,
+        verbose=verbose,
+        flatten_json=flatten,
+        max_concurrent=max_concurrent,
+        sequential=sequential,
+        provider_concurrency=provider_concurrency
+    )
 
     if validate_only:
         # Validate experiments without running them
