@@ -37,7 +37,10 @@ class ExperimentRunner:
         verbose: bool = False,
         providers: Optional[Dict[str, Provider]] = None,
         file_loader: Optional[FileLoader] = None,
-        flatten_json: bool = False
+        flatten_json: bool = False,
+        max_concurrent: Optional[int] = None,
+        sequential: bool = False,
+        provider_concurrency: Optional[Dict[str, int]] = None
     ):
         """
         Initialize the experiment runner.
@@ -48,6 +51,9 @@ class ExperimentRunner:
             providers: Optional provider dictionary (defaults to standard providers)
             file_loader: Optional file loader (defaults to FileLoader instance)
             flatten_json: Enable JSON extraction and flattening from LLM outputs
+            max_concurrent: Global maximum concurrent experiments (overrides provider limits)
+            sequential: Force sequential execution (equivalent to max_concurrent=1)
+            provider_concurrency: Per-provider concurrency limits (e.g., {"openrouter": 5})
         """
         self.timeout = timeout
         self.verbose = verbose
@@ -61,6 +67,9 @@ class ExperimentRunner:
 
         # Use injected file loader or create default
         self.file_loader = file_loader or FileLoader()
+
+        # Setup concurrency control
+        self._setup_concurrency(max_concurrent, sequential, provider_concurrency)
 
         self._setup_logging()
 
