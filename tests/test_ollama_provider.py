@@ -14,7 +14,7 @@ from parallamr.providers.base import (
     ProviderError,
     TimeoutError,
 )
-from fixtures.ollama_responses import (
+from tests.fixtures.ollama_responses import (
     COMPLETION_CODELLAMA,
     COMPLETION_EMPTY_RESPONSE,
     COMPLETION_EXTRA_FIELDS,
