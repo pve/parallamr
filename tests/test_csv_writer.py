@@ -123,7 +123,7 @@ class TestIncrementalCSVWriter:
         assert rows[0]["description"] == "Text with, commas and \"quotes\""
         assert rows[0]["output"] == "Output with\nnewlines and, commas"
 
-    def test_fieldname_ordering(self, tmp_path):
+    async def test_fieldname_ordering(self, tmp_path):
         """Test that fieldnames are ordered correctly."""
         output_file = tmp_path / "test_output.csv"
         writer = IncrementalCSVWriter(output_file)
@@ -141,7 +141,7 @@ class TestIncrementalCSVWriter:
             error_message=None
         )
 
-        writer.write_result(result)
+        await writer.write_result(result)
 
         # Check fieldname order
         with open(output_file, 'r', newline='') as file:
