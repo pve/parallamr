@@ -94,7 +94,7 @@ class TestIncrementalCSVWriter:
         assert rows[1]["topic"] == "ML"
         assert rows[1]["error_message"] == "Warning message"
 
-    def test_csv_escaping(self, tmp_path):
+    async def test_csv_escaping(self, tmp_path):
         """Test CSV escaping of special characters."""
         output_file = tmp_path / "test_output.csv"
         writer = IncrementalCSVWriter(output_file)
@@ -112,7 +112,7 @@ class TestIncrementalCSVWriter:
             error_message=None
         )
 
-        writer.write_result(result)
+        await writer.write_result(result)
 
         # Verify proper CSV escaping
         with open(output_file, 'r', newline='') as file:
