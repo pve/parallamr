@@ -507,7 +507,7 @@ class ExperimentRunner:
                         self.logger.error(f"Experiment {experiment_counter} error: {result.error_message}")
 
             # Close writer for this output file
-            csv_writer.close()
+            await csv_writer.close()
 
         self.logger.info(f"All experiments completed. Results written to {num_output_files} file(s)")
 
