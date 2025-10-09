@@ -465,20 +465,40 @@ class ExperimentRunner:
         else:
             self.logger.info("Results will be written to stdout")
 
-        # Run experiments sequentially
+        # Run experiments concurrently
         total_experiments = len(experiments)
-        for i, experiment in enumerate(experiments, 1):
-            self.logger.info(f"Starting experiment {i}/{total_experiments}: {experiment.provider}/{experiment.model}")
 
-            result = await self._run_single_experiment(
+        # Create wrapped experiment tasks
+        tasks = []
+        for i, experiment in enumerate(experiments, 1):
+            task = self._run_experiment_with_semaphore(
                 experiment=experiment,
                 primary_content=primary_content,
                 context_files=context_file_contents,
+                experiment_num=i,
+                total=total_experiments
             )
+            tasks.append(task)
+
+        # Execute all experiments concurrently
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Write results as they complete and handle any exceptions
+        for i, result in enumerate(results, 1):
+            experiment = experiments[i - 1]
+
+            # Handle exceptions from gather
+            if isinstance(result, Exception):
+                self.logger.exception(f"Unexpected error in experiment {i}")
+                result = self._create_error_result(
+                    experiment,
+                    f"Unexpected error: {str(result)}"
+                )
 
             # Write result immediately
             await csv_writer.write_result(result)
 
+            # Log completion
             self.logger.info(f"Completed experiment {i}/{total_experiments}: status={result.status.value}")
 
             # Log any warnings or errors
