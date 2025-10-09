@@ -16,7 +16,7 @@ from parallamr.providers.base import (
     ProviderError,
     RateLimitError,
 )
-from fixtures.openrouter_responses import (
+from tests.fixtures.openrouter_responses import (
     COMPLETION_EMPTY_CHOICES,
     COMPLETION_EMPTY_RESPONSE,
     COMPLETION_GPT4,
