@@ -305,9 +305,9 @@ class ExperimentRunner:
                         experiment_num=experiment_counter,
                         total=total_experiments
                     )
-                    csv_writer.write_result(result)
+                    await csv_writer.write_result(result)
 
-                csv_writer.close()
+                await csv_writer.close()
 
             self.logger.info(f"All experiments completed. Results written to {len(output_groups)} file(s)")
 
