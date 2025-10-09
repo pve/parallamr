@@ -13,6 +13,7 @@ from parallamr.models import ExperimentResult, ExperimentStatus
 class TestIncrementalCSVWriter:
     """Test incremental CSV writer."""
 
+    @pytest.mark.asyncio
     async def test_write_single_result(self, tmp_path):
         """Test writing a single result."""
         output_file = tmp_path / "test_output.csv"
