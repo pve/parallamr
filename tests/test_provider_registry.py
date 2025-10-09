@@ -407,10 +407,11 @@ class TestProviderMetricsReporting:
             data = metrics[provider_name]
             status = "✓" if data['passes_requirement'] else "✗"
 
+            gap_text = "(PASS)" if data['passes_requirement'] else f"(need {data['gap']} more)"
             report.append(
                 f"{status} {provider_name:20s} "
                 f"{data['test_count']:3d}/{data['min_required']:3d} tests "
-                f"{'(PASS)' if data['passes_requirement'] else f'(need {data[\"gap\"]} more)'}"
+                f"{gap_text}"
             )
 
         report.extend([
