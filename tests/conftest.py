@@ -7,7 +7,9 @@ and ensure consistent mocking patterns across all provider tests.
 import pytest
 from unittest.mock import AsyncMock
 from typing import Dict, Any, Optional
-import aiohttp
+
+# aiohttp is imported at runtime within functions to avoid import errors
+# if tests are run without async dependencies installed
 
 
 # ============================================================================
