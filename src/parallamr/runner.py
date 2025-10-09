@@ -92,6 +92,51 @@ class ExperimentRunner:
             "openai": OpenAIProvider(timeout=timeout),
         }
 
+    def _setup_concurrency(
+        self,
+        max_concurrent: Optional[int],
+        sequential: bool,
+        provider_concurrency: Optional[Dict[str, int]]
+    ) -> None:
+        """
+        Setup concurrency control with provider-specific semaphores.
+
+        Args:
+            max_concurrent: Global maximum concurrent experiments
+            sequential: Force sequential execution
+            provider_concurrency: Per-provider concurrency limits
+        """
+        # Default concurrency limits per provider
+        default_limits = {
+            "openrouter": 10,
+            "ollama": 1,
+            "openai": 10,
+            "mock": 50
+        }
+
+        # Override with user-provided limits
+        if provider_concurrency:
+            default_limits.update(provider_concurrency)
+
+        # Handle sequential flag
+        if sequential:
+            max_concurrent = 1
+
+        # Create provider-specific semaphores
+        self._provider_semaphores: Dict[str, asyncio.Semaphore] = {}
+        for provider_name in self.providers.keys():
+            limit = default_limits.get(provider_name, 10)  # Default to 10 if not specified
+            if max_concurrent is not None:
+                limit = min(limit, max_concurrent)
+            self._provider_semaphores[provider_name] = asyncio.Semaphore(limit)
+
+        # Global semaphore if max_concurrent is set
+        self._global_semaphore: Optional[asyncio.Semaphore] = None
+        if max_concurrent is not None:
+            self._global_semaphore = asyncio.Semaphore(max_concurrent)
+
+        self.logger.debug(f"Concurrency limits: {[(k, v._value) for k, v in self._provider_semaphores.items()]}")
+
     def _setup_logging(self) -> None:
         """Setup logging configuration for this runner instance."""
         level = logging.INFO if self.verbose else logging.WARNING
