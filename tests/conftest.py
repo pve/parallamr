@@ -26,6 +26,7 @@ def create_mock_session() -> AsyncMock:
         >>> session = create_mock_session()
         >>> provider = OpenAIProvider(api_key="test", session=session)
     """
+    import aiohttp
     mock_session = AsyncMock(spec=aiohttp.ClientSession)
     mock_session.close = AsyncMock()
     return mock_session
