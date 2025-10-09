@@ -61,7 +61,7 @@ class IncrementalCSVWriter:
             # Append the result row
             self._write_row(row_data)
 
-    def write_results(self, results: List[ExperimentResult]) -> None:
+    async def write_results(self, results: List[ExperimentResult]) -> None:
         """
         Write multiple results to the CSV file.
 
@@ -69,7 +69,7 @@ class IncrementalCSVWriter:
             results: List of ExperimentResult objects to write
         """
         for result in results:
-            self.write_result(result)
+            await self.write_result(result)
 
     def _determine_fieldnames(self, row_data: Dict[str, Any]) -> List[str]:
         """
