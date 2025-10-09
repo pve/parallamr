@@ -50,6 +50,7 @@ class TestIncrementalCSVWriter:
         assert rows[0]["input_tokens"] == "50"
         assert rows[0]["output"] == "Test output"
 
+    @pytest.mark.asyncio
     async def test_write_multiple_results(self, tmp_path):
         """Test writing multiple results."""
         output_file = tmp_path / "test_output.csv"
@@ -95,6 +96,7 @@ class TestIncrementalCSVWriter:
         assert rows[1]["topic"] == "ML"
         assert rows[1]["error_message"] == "Warning message"
 
+    @pytest.mark.asyncio
     async def test_csv_escaping(self, tmp_path):
         """Test CSV escaping of special characters."""
         output_file = tmp_path / "test_output.csv"
@@ -124,6 +126,7 @@ class TestIncrementalCSVWriter:
         assert rows[0]["description"] == "Text with, commas and \"quotes\""
         assert rows[0]["output"] == "Output with\nnewlines and, commas"
 
+    @pytest.mark.asyncio
     async def test_fieldname_ordering(self, tmp_path):
         """Test that fieldnames are ordered correctly."""
         output_file = tmp_path / "test_output.csv"
@@ -161,6 +164,7 @@ class TestIncrementalCSVWriter:
         assert "var1" in headers
         assert "var2" in headers
 
+    @pytest.mark.asyncio
     async def test_write_results_batch(self, tmp_path):
         """Test writing multiple results in a batch."""
         output_file = tmp_path / "test_output.csv"
@@ -224,6 +228,7 @@ class TestIncrementalCSVWriter:
         fieldnames = writer.get_existing_fieldnames()
         assert fieldnames is None
 
+    @pytest.mark.asyncio
     async def test_validate_compatibility_same_structure(self, tmp_path):
         """Test compatibility validation with same structure."""
         output_file = tmp_path / "test_output.csv"
@@ -263,6 +268,7 @@ class TestIncrementalCSVWriter:
         assert is_compatible is True
         assert error is None
 
+    @pytest.mark.asyncio
     async def test_validate_compatibility_different_structure(self, tmp_path):
         """Test compatibility validation with different structure."""
         output_file = tmp_path / "test_output.csv"
