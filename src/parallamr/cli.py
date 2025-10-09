@@ -117,6 +117,40 @@ def cli() -> None:
     is_flag=True,
     help="Validate experiments without running them"
 )
+@click.option(
+    "--max-concurrent",
+    type=int,
+    help="Maximum number of concurrent experiments (overrides provider limits)"
+)
+@click.option(
+    "--sequential",
+    is_flag=True,
+    help="Run experiments sequentially (equivalent to --max-concurrent=1)"
+)
+@click.option(
+    "--openrouter-concurrency",
+    type=int,
+    default=10,
+    help="Maximum concurrent experiments for OpenRouter provider (default: 10)"
+)
+@click.option(
+    "--ollama-concurrency",
+    type=int,
+    default=1,
+    help="Maximum concurrent experiments for Ollama provider (default: 1)"
+)
+@click.option(
+    "--openai-concurrency",
+    type=int,
+    default=10,
+    help="Maximum concurrent experiments for OpenAI provider (default: 10)"
+)
+@click.option(
+    "--mock-concurrency",
+    type=int,
+    default=50,
+    help="Maximum concurrent experiments for Mock provider (default: 50)"
+)
 def run(
     prompt: str,
     experiments: str,
@@ -125,7 +159,13 @@ def run(
     verbose: bool,
     timeout: int,
     flatten: bool,
-    validate_only: bool
+    validate_only: bool,
+    max_concurrent: Optional[int],
+    sequential: bool,
+    openrouter_concurrency: int,
+    ollama_concurrency: int,
+    openai_concurrency: int,
+    mock_concurrency: int
 ) -> None:
     """
     Run experiments across multiple LLM providers and models.
