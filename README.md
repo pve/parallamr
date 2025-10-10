@@ -64,6 +64,29 @@ pip install -e .
 parallamr run --prompt prompt.txt --experiments experiments.csv --output results.csv
 ```
 
+By default, experiments run **concurrently** with intelligent rate limiting:
+- **OpenRouter/OpenAI**: 10 concurrent requests
+- **Ollama**: 1 request (sequential, local resource constraint)
+- **Mock**: 50 concurrent (testing only)
+
+### Parallel Execution (Default)
+
+```bash
+# Default: Provider-specific concurrency limits
+parallamr run -p prompt.txt -e experiments.csv -o results.csv
+
+# Limit global concurrency across all providers
+parallamr run -p prompt.txt -e experiments.csv -o results.csv --max-concurrent 5
+
+# Override specific provider limits
+parallamr run -p prompt.txt -e experiments.csv -o results.csv \
+  --openrouter-concurrency 15 \
+  --ollama-concurrency 1
+
+# Sequential execution (backward compatibility)
+parallamr run -p prompt.txt -e experiments.csv -o results.csv --sequential
+```
+
 ### With Context Files
 
 ```bash
