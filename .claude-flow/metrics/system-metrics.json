@@ -58,6 +58,7 @@
     "cpuLoad": 0.4466666666666667,
     "platform": "linux",
     "uptime": 1214922.76
+<<<<<<< Updated upstream
   },
   {
     "timestamp": 1760044246624,
@@ -24538,5 +24539,7 @@
     "cpuLoad": 0.25166666666666665,
     "platform": "linux",
     "uptime": 1276129.64
+=======
+>>>>>>> Stashed changes
   }
 ]
