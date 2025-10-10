@@ -350,9 +350,11 @@ class ExperimentRunner:
                 self.logger.info(f"Writing {len(exp_group)} experiment(s) to {output_path}")
                 csv_writer = IncrementalCSVWriter(output_path)
 
+                # Create tasks for parallel execution
+                tasks = []
                 for experiment in exp_group:
                     experiment_counter += 1
-                    result = await self._run_single_experiment_with_templated_inputs(
+                    task = self._run_single_experiment_with_templated_inputs_parallel(
                         experiment=experiment,
                         prompt_template=prompt_template,
                         context_templates=context_templates,
@@ -360,6 +362,17 @@ class ExperimentRunner:
                         experiment_num=experiment_counter,
                         total=total_experiments
                     )
+                    tasks.append(task)
+
+                # Execute experiments concurrently
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+
+                # Write results and handle exceptions
+                for result in results:
+                    if isinstance(result, Exception):
+                        # Find the corresponding experiment for error result
+                        self.logger.exception(f"Unexpected error in templated experiment")
+                        # Result already logged by the method, just write it
                     await csv_writer.write_result(result)
 
                 await csv_writer.close()
