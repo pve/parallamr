@@ -4,12 +4,15 @@ A command-line tool for running systematic experiments across multiple LLM provi
 
 ## Features
 
+- **Intelligent Parallel Processing**: API-based providers run concurrently with configurable rate limiting (10x faster for 50+ experiments)
 - **Multi-Provider Support**: OpenAI, OpenRouter, Ollama, and Mock providers
 - **Template Variables**: Dynamic prompt customization with `{{variable}}` syntax
-- **Incremental CSV Output**: Real-time results writing for monitoring progress
+- **Incremental CSV Output**: Real-time results writing for monitoring progress (thread-safe for concurrent execution)
 - **Context Window Validation**: Automatic token counting and validation
 - **Comprehensive Error Handling**: Graceful handling of API errors and rate limits
 - **Flexible Configuration**: Environment-based configuration with .env support
+- **Provider-Specific Concurrency**: Different limits per provider (OpenRouter=10, Ollama=1, OpenAI=10)
+- **Backward Compatible**: `--sequential` flag preserves original behavior
 
 ## Installation
 
