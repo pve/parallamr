@@ -279,7 +279,7 @@ class TestFactoryErrorHandling:
         runner = create_experiment_runner(providers=None)
 
         # Should create with default providers
-        assert len(runner.providers) == 3
+        assert len(runner.providers) == 4  # mock, openrouter, ollama, openai
 
     def test_factory_with_empty_providers(self):
         """Verify factory handles empty providers dict."""
