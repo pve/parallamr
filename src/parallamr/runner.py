@@ -591,10 +591,7 @@ class ExperimentRunner:
             # Write result immediately
             await csv_writer.write_result(result)
 
-            # Log completion
-            self.logger.info(f"Completed experiment {i}/{total_experiments}: status={result.status.value}")
-
-            # Log any warnings or errors
+            # Log any warnings or errors (completion already logged in semaphore wrapper)
             if result.error_message:
                 if result.status == ExperimentStatus.WARNING:
                     self.logger.warning(f"Experiment {i} warning: {result.error_message}")
