@@ -415,6 +415,68 @@ class ExperimentRunner:
             else:
                 self.logger.info("All experiments completed")
 
+    async def _run_single_experiment_with_templated_inputs_parallel(
+        self,
+        experiment: Experiment,
+        prompt_template: Optional[str | Path],
+        context_templates: Optional[List[str | Path]],
+        read_prompt_stdin: bool,
+        experiment_num: int,
+        total: int
+    ) -> ExperimentResult:
+        """
+        Run a single experiment with template resolution and semaphore control.
+
+        This method combines template resolution with rate limiting for parallel execution.
+
+        Args:
+            experiment: Experiment configuration
+            prompt_template: Prompt file path template
+            context_templates: Context file path templates
+            read_prompt_stdin: Whether to read prompt from stdin
+            experiment_num: Experiment number for logging
+            total: Total number of experiments
+
+        Returns:
+            ExperimentResult containing the execution result
+        """
+        # Get the appropriate semaphore for this provider
+        provider_semaphore = self._provider_semaphores.get(experiment.provider)
+
+        self.logger.info(f"Starting experiment {experiment_num}/{total}: {experiment.provider}/{experiment.model}")
+
+        try:
+            # Acquire both global and provider-specific semaphores
+            async with provider_semaphore:
+                if self._global_semaphore:
+                    async with self._global_semaphore:
+                        result = await self._run_single_experiment_with_templated_inputs(
+                            experiment=experiment,
+                            prompt_template=prompt_template,
+                            context_templates=context_templates,
+                            read_prompt_stdin=read_prompt_stdin,
+                            experiment_num=experiment_num,
+                            total=total
+                        )
+                else:
+                    result = await self._run_single_experiment_with_templated_inputs(
+                        experiment=experiment,
+                        prompt_template=prompt_template,
+                        context_templates=context_templates,
+                        read_prompt_stdin=read_prompt_stdin,
+                        experiment_num=experiment_num,
+                        total=total
+                    )
+
+            return result
+
+        except Exception as e:
+            self.logger.exception(f"Unexpected error in experiment {experiment_num}")
+            return self._create_error_result(
+                experiment,
+                f"Unexpected error: {str(e)}"
+            )
+
     async def _run_single_experiment_with_templated_inputs(
         self,
         experiment: Experiment,
@@ -428,9 +490,8 @@ class ExperimentRunner:
         Run a single experiment with template resolution for input files.
 
         Handles file loading errors gracefully by creating error results.
+        This is the core method that's wrapped by the parallel version.
         """
-        self.logger.info(f"Starting experiment {experiment_num}/{total}: {experiment.provider}/{experiment.model}")
-
         try:
             # Resolve and load input files for this experiment
             primary_content, context_file_contents = self._resolve_and_load_input_files(
