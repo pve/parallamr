@@ -529,7 +529,7 @@ class ExperimentRunner:
                 f"Unexpected error: {str(e)}"
             )
 
-        self.logger.info(f"Completed experiment {experiment_num}/{total}: status={result.status.value}")
+        # Note: Completion logging moved to parallel wrapper for timing
 
         if result.error_message:
             if result.status == ExperimentStatus.WARNING:
