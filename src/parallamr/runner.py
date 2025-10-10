@@ -789,6 +789,7 @@ class ExperimentRunner:
         # Get the appropriate semaphore for this provider
         provider_semaphore = self._provider_semaphores.get(experiment.provider)
 
+        start_time = time.time()
         self.logger.info(f"Starting experiment {experiment_num}/{total}: {experiment.provider}/{experiment.model}")
 
         try:
@@ -808,10 +809,14 @@ class ExperimentRunner:
                         context_files=context_files,
                     )
 
+            elapsed_time = time.time() - start_time
+            self.logger.info(f"Completed experiment {experiment_num}/{total}: status={result.status.value} ({elapsed_time:.2f}s)")
+
             return result
 
         except Exception as e:
-            self.logger.exception(f"Unexpected error in experiment {experiment_num}")
+            elapsed_time = time.time() - start_time
+            self.logger.exception(f"Unexpected error in experiment {experiment_num} after {elapsed_time:.2f}s")
             return self._create_error_result(
                 experiment,
                 f"Unexpected error: {str(e)}"
