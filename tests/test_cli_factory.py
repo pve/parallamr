@@ -22,7 +22,7 @@ class TestFactoryFunction:
         assert isinstance(runner, ExperimentRunner)
         assert runner.timeout == 300
         assert runner.verbose is False
-        assert len(runner.providers) == 3  # mock, openrouter, ollama
+        assert len(runner.providers) == 4  # mock, openrouter, ollama, openai
 
     def test_factory_creates_runner_with_custom_timeout(self):
         """Verify factory creates runner with custom timeout."""
