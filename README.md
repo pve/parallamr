@@ -2,6 +2,9 @@
 
 A command-line tool for running systematic experiments across multiple LLM providers and models, enabling prompt engineering and model comparison through parameterized testing.
 
+The main workflow it supports is to make variations on prompts, models and contexts, to see which one performs best.
+These are all 'experiments', each of which has a new value for a variable in e.g. the prompt.
+
 ## Features
 
 - **Intelligent Parallel Processing**: API-based providers run concurrently with configurable rate limiting (10x faster for 50+ experiments)
