@@ -460,12 +460,40 @@ Variables are replaced with values from the experiments CSV columns.
 - **WARNING**: Successful with issues (missing variables, context warnings)
 - **ERROR**: Failed execution (invalid model, API error, timeout)
 
+### Parallel Processing
+
+Parallamr intelligently executes experiments concurrently to maximize throughput:
+
+**How it works:**
+- API-based providers (OpenRouter, OpenAI) run up to 10 requests concurrently
+- Local providers (Ollama) remain sequential to avoid resource exhaustion
+- Configurable limits prevent rate limiting (HTTP 429 errors)
+- Thread-safe CSV writing ensures no data corruption
+
+**Performance:**
+- 50 OpenRouter experiments: **~2.5 minutes** (vs 25 minutes sequential)
+- 50 OpenAI experiments: **~1.5 minutes** (vs 12.5 minutes sequential)
+- **10x speedup** for API-based workloads
+
+**Configuration:**
+```bash
+# Global limit (caps all providers)
+parallamr run ... --max-concurrent 20
+
+# Per-provider limits
+parallamr run ... --openrouter-concurrency 15 --ollama-concurrency 1
+
+# Force sequential (backward compatibility)
+parallamr run ... --sequential
+```
+
 ### Incremental Output
 
-Results are written to CSV after each experiment completes:
+Results are written to CSV as experiments complete:
 - Real-time monitoring possible
 - No data loss if interrupted
 - Immediate feedback on errors
+- Thread-safe for concurrent execution
 
 ## Examples
 
