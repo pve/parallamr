@@ -1,11 +1,19 @@
 [
   {
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     "id": "cmd-hooks-1760371411034",
     "type": "hooks",
     "success": true,
     "duration": 41.745958,
     "timestamp": 1760371411076,
+=======
+    "id": "cmd-hooks-1760044243987",
+    "type": "hooks",
+    "success": true,
+    "duration": 10.237416999999994,
+    "timestamp": 1760044243997,
+>>>>>>> Stashed changes
 =======
     "id": "cmd-hooks-1760044243987",
     "type": "hooks",
