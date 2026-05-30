@@ -74,3 +74,14 @@ prompt.txt
 
 .claude/*
 .claude-flow/*
+
+# Database files
+*.rvf
+*.rvf.lock
+
+# Local config/state
+.roomodes
+issues.txt
+
+# Generated analysis CSVs
+analysis-reports/*.csv
