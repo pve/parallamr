@@ -22,6 +22,7 @@ Integration:
 import inspect
 import os
 import sys
+import re
 from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
@@ -66,11 +67,6 @@ def discover_provider_classes() -> Dict[str, type]:
 
     Returns:
         Dict mapping provider class names to their class objects
-
-    Example:
-        >>> providers = discover_provider_classes()
-        >>> print(providers.keys())
-        dict_keys(['MockProvider', 'OpenAIProvider', 'OllamaProvider', 'OpenRouterProvider'])
     """
     # Import the providers module
     import parallamr.providers as providers_module
@@ -96,24 +92,31 @@ def discover_test_files() -> Dict[str, Path]:
 
     Returns:
         Dict mapping provider names to their test file paths
-
-    Example:
-        >>> test_files = discover_test_files()
-        >>> print(test_files['OpenAI'])
-        PosixPath('/workspaces/parallamr/tests/test_openai_provider.py')
     """
     tests_dir = PROJECT_ROOT / "tests"
     test_files = {}
 
+    # Map of known name segments to their expected case in class names
+    CASE_MAP = {
+        "openai": "OpenAI",
+        "openrouter": "OpenRouter",
+        "ollama": "Ollama",
+        "mock": "Mock",
+    }
+
     # Find all test files matching the pattern
     for test_file in tests_dir.glob(f"{TEST_FILE_PREFIX}*{TEST_FILE_SUFFIX}"):
-        # Extract provider name from filename
-        # Example: test_openai_provider.py -> openai -> OpenAI
-        filename = test_file.stem  # Remove .py
-        provider_name = filename.replace(TEST_FILE_PREFIX, "").replace("_provider", "")
+        filename = test_file.stem
+        provider_slug = filename.replace(TEST_FILE_PREFIX, "").replace("_provider", "")
 
-        # Convert to PascalCase to match provider class names
-        provider_name = "".join(word.capitalize() for word in provider_name.split("_"))
+        # Use CASE_MAP if available, otherwise capitalize
+        provider_name = CASE_MAP.get(provider_slug.lower())
+        if not provider_name:
+            provider_name = "".join(word.capitalize() for word in provider_slug.split("_"))
+
+        # Append "Provider" if missing to match class names
+        if not provider_name.endswith("Provider"):
+             provider_name += "Provider"
 
         test_files[provider_name] = test_file
 
@@ -128,50 +131,18 @@ def count_tests_in_file(test_file: Path) -> int:
 
     Returns:
         Number of test functions found
-
-    Note:
-        This uses pytest's collection mechanism for accuracy
     """
-    try:
-        # Use pytest to collect tests from the file
-        import _pytest.config
-        import _pytest.main
-
-        # Create a pytest config
-        config = _pytest.config.Config.fromdictargs(
-            {"args": [str(test_file), "--collect-only", "-q"]},
-            []
-        )
-
-        # Collect tests
-        session = _pytest.main.Session.from_config(config)
-        session.perform_collect()
-
-        # Count collected items
-        return len(session.items)
-    except Exception:
-        # Fallback: count by pattern matching
-        with open(test_file, 'r') as f:
-            content = f.read()
-            # Count lines starting with "def test_" or "async def test_"
-            import re
-            pattern = r'^\s*(async\s+)?def\s+test_\w+'
-            matches = re.findall(pattern, content, re.MULTILINE)
-            return len(matches)
+    # Simply count by pattern matching to avoid complex pytest collection issues
+    with open(test_file, 'r') as f:
+        content = f.read()
+        # Count lines starting with "def test_" or "async def test_"
+        pattern = r'^\s*(async\s+)?def\s+test_\w+'
+        matches = re.findall(pattern, content, re.MULTILINE)
+        return len(matches)
 
 
 def get_provider_test_metrics() -> Dict[str, Dict[str, any]]:
     """Get comprehensive metrics for all providers and their tests.
-
-    Returns:
-        Dict mapping provider names to their metrics:
-        - 'exists': Whether provider class exists
-        - 'has_test_file': Whether test file exists
-        - 'test_file_path': Path to test file (if exists)
-        - 'test_count': Number of tests (if test file exists)
-        - 'min_required': Minimum tests required
-        - 'passes_requirement': Whether test count meets minimum
-        - 'gap': How many tests short (negative if exceeds)
     """
     providers = discover_provider_classes()
     test_files = discover_test_files()
@@ -179,11 +150,8 @@ def get_provider_test_metrics() -> Dict[str, Dict[str, any]]:
     metrics = {}
 
     for provider_name, provider_class in providers.items():
-        # Determine expected test file name (e.g., OpenAIProvider -> OpenAI)
-        test_key = provider_name.replace("Provider", "")
-
-        has_test_file = test_key in test_files
-        test_file_path = test_files.get(test_key)
+        has_test_file = provider_name in test_files
+        test_file_path = test_files.get(provider_name)
         test_count = count_tests_in_file(test_file_path) if has_test_file else 0
 
         min_required = MIN_TESTS_PER_PROVIDER.get(provider_name, DEFAULT_MIN_TESTS)
@@ -205,26 +173,13 @@ def get_provider_test_metrics() -> Dict[str, Dict[str, any]]:
 
 def find_orphaned_test_files() -> List[Path]:
     """Find test files that don't correspond to any provider.
-
-    Returns:
-        List of paths to orphaned test files
-
-    Note:
-        Orphaned files may indicate:
-        - Renamed providers without updating tests
-        - Deleted providers without removing tests
-        - Incorrectly named test files
     """
     providers = discover_provider_classes()
     test_files = discover_test_files()
 
-    # Get expected provider names (without "Provider" suffix)
-    provider_names = {name.replace("Provider", "") for name in providers.keys()}
-
-    # Find test files without matching providers
     orphaned = []
     for test_name, test_path in test_files.items():
-        if test_name not in provider_names:
+        if test_name not in providers:
             orphaned.append(test_path)
 
     return orphaned
@@ -278,8 +233,7 @@ class TestProviderTestCoverage:
 
         missing_tests = []
         for provider_name in providers.keys():
-            test_key = provider_name.replace("Provider", "")
-            if test_key not in test_files:
+            if provider_name not in test_files:
                 missing_tests.append(provider_name)
 
         assert not missing_tests, (
@@ -332,7 +286,7 @@ class TestProviderTestQuality:
         collection_failures = []
         for provider_name, test_path in test_files.items():
             try:
-                # Try to count tests (uses pytest collection)
+                # Try to count tests
                 count = count_tests_in_file(test_path)
                 if count == 0:
                     collection_failures.append(
@@ -358,6 +312,10 @@ class TestProviderTestQuality:
 
         incorrectly_named = []
         for test_file in provider_test_files:
+            # Exclude registry validation itself
+            if test_file.name == "test_provider_registry.py":
+                continue
+
             # Check if it follows the pattern: test_<name>_provider.py
             if not test_file.name.endswith(TEST_FILE_SUFFIX):
                 incorrectly_named.append(test_file.name)
@@ -445,13 +403,6 @@ class TestProviderMetricsReporting:
 
 def get_coverage_percentage() -> float:
     """Get overall provider test coverage percentage.
-
-    Returns:
-        Coverage percentage (0-100)
-
-    Example:
-        >>> coverage = get_coverage_percentage()
-        >>> assert coverage >= 90, f"Coverage too low: {coverage}%"
     """
     metrics = get_provider_test_metrics()
     if not metrics:
@@ -463,14 +414,6 @@ def get_coverage_percentage() -> float:
 
 def get_test_gap_count() -> int:
     """Get total number of tests needed to meet all requirements.
-
-    Returns:
-        Number of additional tests needed
-
-    Example:
-        >>> gap = get_test_gap_count()
-        >>> if gap > 0:
-        ...     print(f"Need {gap} more tests")
     """
     metrics = get_provider_test_metrics()
     return sum(m['gap'] for m in metrics.values() if m['gap'] > 0)

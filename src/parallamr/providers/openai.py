@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 import aiohttp
 
+from .. import __version__
 from ..models import ProviderResponse
 from ..token_counter import estimate_tokens
 from .base import (
@@ -77,13 +78,13 @@ class OpenAIProvider(Provider):
         self.organization = organization or _env_getter("OPENAI_ORG_ID")
 
         # Endpoint configuration
-        self.base_url = base_url or "https://api.openai.com/v1"
+        self.base_url = (base_url or "https://api.openai.com/v1").rstrip("/")
 
         # HTTP session management
         self._session = session
 
         # Runtime caches
-        self._models_cache: Optional[List[str]] = None
+        self._model_cache: Optional[List[str]] = None
         self._model_details_cache: Optional[Dict[str, Any]] = None
 
     async def get_completion(
@@ -95,27 +96,19 @@ class OpenAIProvider(Provider):
         Args:
             prompt: Input prompt text
             model: Model identifier (e.g., "gpt-4", "gpt-3.5-turbo")
-            **kwargs: Additional parameters passed through to API:
-                - temperature: Sampling temperature (0.0 to 2.0)
-                - max_tokens: Maximum tokens to generate
-                - top_p: Nucleus sampling parameter
-                - frequency_penalty: Frequency penalty (-2.0 to 2.0)
-                - presence_penalty: Presence penalty (-2.0 to 2.0)
-                - stop: Stop sequences (string or list)
-                - n: Number of completions to generate
-                - user: End-user identifier for abuse monitoring
+            **kwargs: Additional parameters passed through to API
 
         Returns:
             ProviderResponse containing the completion result
         """
-        # Step 1: Validate configuration
+        # Step 1: Validate configuration (Configuration Failure Mode)
         valid, error = self._validate_configuration()
         if not valid:
             return ProviderResponse(
                 output="", output_tokens=0, success=False, error_message=error
             )
 
-        # Step 2: Validate parameters
+        # Step 2: Validate parameters (Configuration Failure Mode)
         valid, error = self._validate_parameters(kwargs)
         if not valid:
             return ProviderResponse(
@@ -125,7 +118,16 @@ class OpenAIProvider(Provider):
                 error_message=f"Invalid parameters: {error}",
             )
 
-        # Step 3: Build request payload
+        # Step 3: Validate model availability (Operational Failure Mode - Model)
+        if not self.is_model_available(model):
+            return ProviderResponse(
+                output="",
+                output_tokens=0,
+                success=False,
+                error_message=f"Model {model} not found or unavailable",
+            )
+
+        # Step 4: Build request payload
         try:
             payload = self._build_completion_payload(prompt, model, kwargs)
         except Exception as e:
@@ -136,29 +138,21 @@ class OpenAIProvider(Provider):
                 error_message=f"Failed to build request: {str(e)}",
             )
 
-        # Step 4: Make API request with error handling
+        # Step 5: Make API request with error handling (Operational Failure Mode - Network/API)
         status, data, error = await self._make_request(
             "POST", "/chat/completions", json_data=payload
         )
 
-        # Step 5: Handle errors
+        # Step 6: Handle errors
         if error or status >= 400:
             return self._map_error_response(status, data, error)
 
-        # Step 6: Transform successful response
-        return self._transform_api_response(data, model)
+        # Step 7: Transform successful response (Operational Failure Mode - Response Parsing)
+        return await self._transform_api_response(data, model)
 
     async def get_context_window(self, model: str) -> Optional[int]:
         """
         Get model's context window size.
-
-        Uses static metadata first, falls back to API query for unknown models.
-
-        Args:
-            model: Model identifier
-
-        Returns:
-            Context window size in tokens, or None if unknown
         """
         # First check static metadata
         static_window = self._get_static_context_window(model)
@@ -168,16 +162,13 @@ class OpenAIProvider(Provider):
         # Fall back to API query
         models_info = await self._get_models_info()
         if models_info and model in models_info:
-            return models_info[model].get("context_window")
+            return models_info[model].get("context_window") or models_info[model].get("context_length")
 
         return None
 
     async def list_models(self) -> List[str]:
         """
         List available models from OpenAI API.
-
-        Returns:
-            List of model identifiers
         """
         models_info = await self._get_models_info()
         if models_info:
@@ -189,112 +180,80 @@ class OpenAIProvider(Provider):
     def is_model_available(self, model: str) -> bool:
         """
         Check if a model is available (synchronous check using cache).
-
-        Args:
-            model: Model identifier
-
-        Returns:
-            True if model is available, False otherwise
         """
-        # For synchronous check, we rely on cached data
-        # If cache is empty, check static metadata or assume available
-        if self._models_cache is None:
-            return model in self._MODEL_METADATA or True
+        if self._model_cache is None:
+            return True # Optimistic
 
-        return model in self._models_cache
+        return model in self._model_cache
 
     def _build_headers(self) -> Dict[str, str]:
-        """
-        Build request headers with authentication.
-
-        Returns:
-            Dictionary of HTTP headers
-        """
+        """Build request headers with authentication."""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
+            "User-Agent": f"Parallamr/{__version__} (https://github.com/parallamr/parallamr)"
         }
 
-        # Add organization header if configured
         if self.organization:
             headers["OpenAI-Organization"] = self.organization
-
-        # Add user agent for tracking
-        headers["User-Agent"] = "Parallamr/0.6.0 (https://github.com/parallamr/parallamr)"
 
         return headers
 
     def _build_completion_payload(
         self, prompt: str, model: str, kwargs: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """
-        Build OpenAI API request payload with parameter mapping.
-
-        Args:
-            prompt: User prompt text
-            model: Model identifier
-            kwargs: Additional parameters from experiments CSV
-
-        Returns:
-            API request payload dictionary
-        """
-        # Base payload with messages format
+        """Build OpenAI API request payload."""
         payload = {
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
+            "stream": False,
         }
 
-        # Map supported parameters (filter out non-API params)
+        # Map supported parameters
         api_params = [
-            "temperature",
-            "max_tokens",
-            "top_p",
-            "frequency_penalty",
-            "presence_penalty",
-            "stop",
-            "n",
-            "user",
-            "logit_bias",
-            "logprobs",
-            "top_logprobs",
-            "response_format",
-            "seed",
-            "tools",
-            "tool_choice",
+            "temperature", "max_tokens", "top_p", "frequency_penalty",
+            "presence_penalty", "stop", "n", "user", "logit_bias",
+            "logprobs", "top_logprobs", "response_format", "seed",
+            "tools", "tool_choice",
         ]
 
         for param in api_params:
             if param in kwargs:
                 payload[param] = kwargs[param]
 
-        # Always disable streaming in non-streaming mode
-        payload["stream"] = False
-
         return payload
 
-    def _transform_api_response(
+    async def _transform_api_response(
         self, api_response: Dict[str, Any], model: str
     ) -> ProviderResponse:
-        """
-        Transform OpenAI API response to ProviderResponse.
-
-        Args:
-            api_response: Raw API response dictionary
-            model: Model identifier
-
-        Returns:
-            Standardized ProviderResponse
-        """
+        """Transform OpenAI API response to ProviderResponse."""
         try:
             # Extract completion content
-            output = api_response["choices"][0]["message"]["content"]
+            if "choices" not in api_response or not api_response["choices"]:
+                 return ProviderResponse(
+                    output="",
+                    output_tokens=0,
+                    success=False,
+                    error_message="Malformed API response: missing 'choices'",
+                )
+
+            choice = api_response["choices"][0]
+            if "message" not in choice or "content" not in choice["message"]:
+                 return ProviderResponse(
+                    output="",
+                    output_tokens=0,
+                    success=False,
+                    error_message="Malformed API response: missing 'message' or 'content'",
+                )
+
+            output = choice["message"]["content"]
 
             # Extract token usage
             usage = api_response.get("usage", {})
             output_tokens = usage.get("completion_tokens", estimate_tokens(output))
 
             # Get context window for this model
-            context_window = self._get_static_context_window(model)
+            context_window = await self.get_context_window(model)
 
             return ProviderResponse(
                 output=output,
@@ -303,8 +262,7 @@ class OpenAIProvider(Provider):
                 context_window=context_window,
             )
 
-        except (KeyError, IndexError) as e:
-            # Malformed API response
+        except (KeyError, IndexError, TypeError) as e:
             return ProviderResponse(
                 output="",
                 output_tokens=0,
@@ -315,18 +273,7 @@ class OpenAIProvider(Provider):
     def _map_error_response(
         self, status: int, error_data: Optional[Dict], error_msg: Optional[str]
     ) -> ProviderResponse:
-        """
-        Map API errors to ProviderResponse.
-
-        Args:
-            status: HTTP status code
-            error_data: Parsed error response
-            error_msg: Direct error message
-
-        Returns:
-            ProviderResponse with appropriate error message
-        """
-        # Extract error details
+        """Map API errors to ProviderResponse."""
         if error_data and "error" in error_data:
             error_type = error_data["error"].get("type", "unknown_error")
             error_message = error_data["error"].get("message", "Unknown error")
@@ -336,7 +283,6 @@ class OpenAIProvider(Provider):
             error_message = error_msg or f"HTTP {status} error"
             error_code = None
 
-        # Map status codes to user-friendly messages
         if status == 401:
             message = "Authentication failed - invalid API key"
         elif status == 403:
@@ -347,14 +293,11 @@ class OpenAIProvider(Provider):
             message = "Rate limit exceeded - please wait and retry"
         elif status == 413:
             message = "Request too large - input exceeds model context window"
-        elif status == 500:
+        elif status >= 500:
             message = "OpenAI server error - please retry"
-        elif status == 503:
-            message = "OpenAI service unavailable - server overloaded"
         else:
             message = f"{error_type}: {error_message}"
 
-        # Add error code if present
         if error_code:
             message = f"{message} (code: {error_code})"
 
@@ -369,24 +312,12 @@ class OpenAIProvider(Provider):
         json_data: Optional[Dict] = None,
         timeout_override: Optional[int] = None,
     ) -> tuple[int, Optional[Dict], Optional[str]]:
-        """
-        Make authenticated HTTP request to OpenAI API.
-
-        Args:
-            method: HTTP method (GET, POST)
-            endpoint: API endpoint path (e.g., "/chat/completions")
-            json_data: Request body data
-            timeout_override: Override default timeout
-
-        Returns:
-            Tuple of (status_code, response_data, error_message)
-        """
+        """Make authenticated HTTP request to OpenAI API."""
         url = f"{self.base_url}{endpoint}"
         headers = self._build_headers()
         timeout = timeout_override or self.timeout
 
         try:
-            # Use injected session if available, otherwise create temporary session
             if self._session:
                 async with self._session.request(
                     method,
@@ -397,7 +328,6 @@ class OpenAIProvider(Provider):
                 ) as response:
                     return await self._process_response(response)
             else:
-                # No injected session - use temporary session (backward compatibility)
                 async with aiohttp.ClientSession(
                     timeout=aiohttp.ClientTimeout(total=timeout)
                 ) as session:
@@ -416,123 +346,67 @@ class OpenAIProvider(Provider):
     async def _process_response(
         self, response: aiohttp.ClientResponse
     ) -> tuple[int, Optional[Dict], Optional[str]]:
-        """
-        Process HTTP response and extract data.
-
-        Args:
-            response: aiohttp response object
-
-        Returns:
-            Tuple of (status_code, response_data, error_message)
-        """
+        """Process HTTP response and extract data."""
         status = response.status
 
         try:
             data = await response.json()
         except Exception:
-            # Failed to parse JSON
-            text = await response.text()
-            return status, None, f"Invalid JSON response: {text[:200]}"
+            try:
+                text = await response.text()
+                return status, None, f"Invalid JSON response: {text[:200]}"
+            except Exception:
+                return status, None, "Could not read response body"
 
-        # Check for API errors in response body
-        if "error" in data:
+        if isinstance(data, dict) and "error" in data:
             error_msg = data["error"].get("message", "Unknown error")
             error_type = data["error"].get("type", "unknown")
             return status, data, f"{error_type}: {error_msg}"
 
-        # For successful responses
         if status == 200:
             return status, data, None
 
-        # For error status codes without error field
         return status, data, f"HTTP {status} error"
 
     def _validate_configuration(self) -> tuple[bool, Optional[str]]:
-        """
-        Validate provider configuration.
-
-        Returns:
-            Tuple of (is_valid, error_message)
-        """
+        """Validate provider configuration."""
         if not self.api_key:
-            return (
-                False,
-                "OpenAI API key not provided. Set OPENAI_API_KEY or pass api_key parameter.",
-            )
-
+            return False, "OpenAI API key not provided. Set OPENAI_API_KEY or pass api_key parameter."
         if not self.base_url:
             return False, "Base URL is required."
-
         return True, None
 
     def _validate_parameters(self, kwargs: Dict[str, Any]) -> tuple[bool, Optional[str]]:
-        """
-        Validate API parameters.
-
-        Args:
-            kwargs: Parameters to validate
-
-        Returns:
-            Tuple of (is_valid, error_message)
-        """
-        # Temperature validation
+        """Validate API parameters."""
         if "temperature" in kwargs:
             temp = kwargs["temperature"]
             if not isinstance(temp, (int, float)) or not (0.0 <= temp <= 2.0):
                 return False, "temperature must be between 0.0 and 2.0"
 
-        # Max tokens validation
         if "max_tokens" in kwargs:
             max_tok = kwargs["max_tokens"]
             if not isinstance(max_tok, int) or max_tok < 1:
                 return False, "max_tokens must be a positive integer"
 
-        # Top_p validation
         if "top_p" in kwargs:
             top_p = kwargs["top_p"]
             if not isinstance(top_p, (int, float)) or not (0.0 <= top_p <= 1.0):
                 return False, "top_p must be between 0.0 and 1.0"
 
-        # Frequency penalty validation
-        if "frequency_penalty" in kwargs:
-            freq_pen = kwargs["frequency_penalty"]
-            if not isinstance(freq_pen, (int, float)) or not (-2.0 <= freq_pen <= 2.0):
-                return False, "frequency_penalty must be between -2.0 and 2.0"
-
-        # Presence penalty validation
-        if "presence_penalty" in kwargs:
-            pres_pen = kwargs["presence_penalty"]
-            if not isinstance(pres_pen, (int, float)) or not (-2.0 <= pres_pen <= 2.0):
-                return False, "presence_penalty must be between -2.0 and 2.0"
-
         return True, None
 
     def _get_static_context_window(self, model: str) -> Optional[int]:
-        """
-        Get context window from static metadata.
-
-        Args:
-            model: Model identifier
-
-        Returns:
-            Context window size in tokens, or None if not in metadata
-        """
+        """Get context window from static metadata."""
         metadata = self._MODEL_METADATA.get(model)
         if metadata:
             return metadata.get("context_length")
         return None
 
     async def _get_models_info(self) -> Optional[Dict[str, Any]]:
-        """
-        Fetch and cache models information from OpenAI API.
-
-        Returns:
-            Dictionary mapping model names to their info, or None on error
-        """
+        """Fetch and cache models information from OpenAI API."""
         if self._model_details_cache is not None:
             return self._model_details_cache
 
-        # Validate configuration first
         valid, error = self._validate_configuration()
         if not valid:
             return None
@@ -543,7 +417,6 @@ class OpenAIProvider(Provider):
             )
 
             if status == 200 and data:
-                # Convert list of models to dictionary
                 models_dict = {}
                 for model_info in data.get("data", []):
                     model_id = model_info.get("id")
@@ -551,11 +424,10 @@ class OpenAIProvider(Provider):
                         models_dict[model_id] = model_info
 
                 self._model_details_cache = models_dict
-                self._models_cache = list(models_dict.keys())
+                self._model_cache = list(models_dict.keys())
                 return self._model_details_cache
 
         except Exception:
-            # If we can't fetch models, return None and let individual requests handle errors
             pass
 
         return None

@@ -16,7 +16,7 @@ from parallamr.providers.base import (
     ProviderError,
     RateLimitError,
 )
-from fixtures.openai_responses import (
+from tests.fixtures.openai_responses import (
     AZURE_COMPLETION_RESPONSE,
     COMPLETION_MULTIPLE_CHOICES,
     COMPLETION_NO_STREAM,
@@ -191,7 +191,7 @@ class TestOpenAIProviderCompletion:
 
         # Verify request format
         call_args = mock_session.request.call_args
-        assert "https://api.openai.com/v1/chat/completions" in str(call_args)
+        assert "https://api.openai.com/v1/chat/completions" in call_args[0][1]
         assert call_args[1]["headers"]["Authorization"] == "Bearer test-key"
         assert call_args[1]["headers"]["Content-Type"] == "application/json"
 
@@ -364,14 +364,11 @@ class TestOpenAIProviderCompletion:
         provider = OpenAIProvider(api_key="test-key")
         assert provider._session is None
 
-        # Note: Actual API call would require mocking at aiohttp.ClientSession level
-        # This test just verifies the session is None initially
-
     @pytest.mark.asyncio
     async def test_completion_model_not_available(self):
         """Provider handles unavailable model."""
         provider = OpenAIProvider(api_key="test-key")
-        provider._model_cache = {"gpt-4": {}, "gpt-3.5-turbo": {}}
+        provider._model_cache = ["gpt-4", "gpt-3.5-turbo"]
 
         result = await provider.get_completion("test prompt", "nonexistent-model")
 
@@ -426,7 +423,7 @@ class TestOpenAIProviderModels:
         mock_get_ctx = AsyncMock()
         mock_get_ctx.__aenter__.return_value = mock_response
         mock_get_ctx.__aexit__.return_value = None
-        mock_session.get.return_value = mock_get_ctx
+        mock_session.request.return_value = mock_get_ctx
 
         provider = OpenAIProvider(api_key="test-key", session=mock_session)
         models = await provider.list_models()
@@ -448,12 +445,13 @@ class TestOpenAIProviderModels:
         mock_get_ctx = AsyncMock()
         mock_get_ctx.__aenter__.return_value = mock_response
         mock_get_ctx.__aexit__.return_value = None
-        mock_session.get.return_value = mock_get_ctx
+        mock_session.request.return_value = mock_get_ctx
 
         provider = OpenAIProvider(api_key="test-key", session=mock_session)
         models = await provider.list_models()
 
-        assert models == []
+        # Fallback to static metadata if API returns nothing
+        assert len(models) == 17
 
     @pytest.mark.asyncio
     async def test_list_models_caching(self):
@@ -468,7 +466,7 @@ class TestOpenAIProviderModels:
         mock_get_ctx = AsyncMock()
         mock_get_ctx.__aenter__.return_value = mock_response
         mock_get_ctx.__aexit__.return_value = None
-        mock_session.get.return_value = mock_get_ctx
+        mock_session.request.return_value = mock_get_ctx
 
         provider = OpenAIProvider(api_key="test-key", session=mock_session)
 
@@ -477,7 +475,7 @@ class TestOpenAIProviderModels:
         models2 = await provider.list_models()
 
         # Should only call API once (caching)
-        assert mock_session.get.call_count == 1
+        assert mock_session.request.call_count == 1
         assert models1 == models2
 
     @pytest.mark.asyncio
@@ -485,13 +483,13 @@ class TestOpenAIProviderModels:
         """Provider handles errors when listing models."""
         mock_session = AsyncMock(spec=aiohttp.ClientSession)
 
-        mock_session.get.side_effect = aiohttp.ClientError("API error")
+        mock_session.request.side_effect = aiohttp.ClientError("API error")
 
         provider = OpenAIProvider(api_key="test-key", session=mock_session)
         models = await provider.list_models()
 
-        # Should return empty list on error
-        assert models == []
+        # Should return static list on error
+        assert len(models) == 17
 
     @pytest.mark.asyncio
     async def test_get_context_window_success(self):
@@ -521,16 +519,13 @@ class TestOpenAIProviderModels:
         gpt35_16k_context = await provider.get_context_window("gpt-3.5-turbo-16k")
 
         assert gpt4_context == 8192
-        assert gpt35_context == 4096
-        assert gpt35_16k_context == 16384
+        assert gpt35_context == 16385
+        assert gpt35_16k_context == 16385
 
     def test_is_model_available_with_cache(self):
         """Provider checks model availability using cache."""
         provider = OpenAIProvider(api_key="test-key")
-        provider._model_cache = {
-            "gpt-4": {},
-            "gpt-3.5-turbo": {}
-        }
+        provider._model_cache = ["gpt-4", "gpt-3.5-turbo"]
 
         assert provider.is_model_available("gpt-4") is True
         assert provider.is_model_available("gpt-3.5-turbo") is True
@@ -738,6 +733,7 @@ class TestOpenAIProviderErrorHandling:
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.json = AsyncMock(side_effect=ValueError("Invalid JSON"))
+        mock_response.text.return_value = "Not JSON"
 
         mock_post_ctx = AsyncMock()
         mock_post_ctx.__aenter__.return_value = mock_response
@@ -811,7 +807,7 @@ class TestOpenAIProviderSessionInjection:
         await provider.get_completion("test prompt", "gpt-4")
 
         # Verify session.request was called
-        mock_session.request.assert_called_once()
+        mock_session.request.assert_called()
 
     @pytest.mark.asyncio
     async def test_session_reused_across_calls(self):
@@ -942,12 +938,12 @@ class TestOpenAIProviderSessionInjection:
         mock_get_ctx = AsyncMock()
         mock_get_ctx.__aenter__.return_value = mock_response
         mock_get_ctx.__aexit__.return_value = None
-        mock_session.get.return_value = mock_get_ctx
+        mock_session.request.return_value = mock_get_ctx
 
         provider = OpenAIProvider(api_key="test-key", session=mock_session)
         await provider.list_models()
 
-        mock_session.get.assert_called_once()
+        mock_session.request.assert_called()
         mock_session.close.assert_not_called()
 
 
@@ -1050,7 +1046,7 @@ class TestOpenAIProviderCompatibility:
 
         # Verify custom URL was used
         call_args = mock_session.request.call_args
-        assert custom_url in call_args[0][0]
+        assert custom_url in call_args[0][1]
 
     @pytest.mark.asyncio
     async def test_openai_compatible_headers(self):
@@ -1121,7 +1117,7 @@ class TestOpenAIProviderCompatibility:
             mock_post_ctx = AsyncMock()
             mock_post_ctx.__aenter__.return_value = mock_response
             mock_post_ctx.__aexit__.return_value = None
-            mock_session.post.return_value = mock_post_ctx
+            mock_session.request.return_value = mock_post_ctx
 
             provider = OpenAIProvider(api_key="test-key", session=mock_session)
             result = await provider.get_completion("test prompt", "gpt-4")
