@@ -70,7 +70,7 @@ def create_experiment_runner(
 
 def load_environment() -> None:
     """Load environment variables from .env file crawling up to the top."""
-    load_dotenv(find_dotenv())
+    load_dotenv(find_dotenv(usecwd=True))
 
 
 @click.group()
