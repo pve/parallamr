@@ -1,5 +1,6 @@
 [
   {
+<<<<<<< Updated upstream
     "timestamp": 1760285611783,
     "memoryTotal": 12530114560,
     "memoryUsed": 5784645632,
@@ -642,9 +643,42 @@
     "memoryFree": 6735491072,
     "memoryUsagePercent": 46.24557469329314,
     "memoryEfficiency": 53.75442530670686,
+=======
+    "timestamp": 1760044096619,
+    "memoryTotal": 12530114560,
+    "memoryUsed": 7968993280,
+    "memoryFree": 4561121280,
+    "memoryUsagePercent": 63.598726426967325,
+    "memoryEfficiency": 36.401273573032675,
+    "cpuCount": 6,
+    "cpuLoad": 0.3416666666666666,
+    "platform": "linux",
+    "uptime": 1214802.76
+  },
+  {
+    "timestamp": 1760044126620,
+    "memoryTotal": 12530114560,
+    "memoryUsed": 8065458176,
+    "memoryFree": 4464656384,
+    "memoryUsagePercent": 64.36859086466326,
+    "memoryEfficiency": 35.63140913533674,
+    "cpuCount": 6,
+    "cpuLoad": 0.38666666666666666,
+    "platform": "linux",
+    "uptime": 1214832.76
+  },
+  {
+    "timestamp": 1760044156621,
+    "memoryTotal": 12530114560,
+    "memoryUsed": 8115884032,
+    "memoryFree": 4414230528,
+    "memoryUsagePercent": 64.77102817486131,
+    "memoryEfficiency": 35.228971825138686,
+>>>>>>> Stashed changes
     "cpuCount": 6,
     "cpuLoad": 0.5266666666666667,
     "platform": "linux",
+<<<<<<< Updated upstream
     "uptime": 1389002.91
   },
   {
@@ -31630,5 +31664,32 @@
     "cpuLoad": 0.3466666666666667,
     "platform": "linux",
     "uptime": 1466472.69
+=======
+    "uptime": 1214862.76
+  },
+  {
+    "timestamp": 1760044186624,
+    "memoryTotal": 12530114560,
+    "memoryUsed": 8549543936,
+    "memoryFree": 3980570624,
+    "memoryUsagePercent": 68.23196942901694,
+    "memoryEfficiency": 31.768030570983058,
+    "cpuCount": 6,
+    "cpuLoad": 0.3666666666666667,
+    "platform": "linux",
+    "uptime": 1214892.76
+  },
+  {
+    "timestamp": 1760044216623,
+    "memoryTotal": 12530114560,
+    "memoryUsed": 8420220928,
+    "memoryFree": 4109893632,
+    "memoryUsagePercent": 67.19987185815482,
+    "memoryEfficiency": 32.80012814184518,
+    "cpuCount": 6,
+    "cpuLoad": 0.4466666666666667,
+    "platform": "linux",
+    "uptime": 1214922.76
+>>>>>>> Stashed changes
   }
 ]
