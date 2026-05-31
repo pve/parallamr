@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 import aiohttp
 
+from .. import __version__
 from ..models import ProviderResponse
 from ..token_counter import estimate_tokens
 from .base import (
@@ -40,7 +41,9 @@ class OllamaProvider(Provider):
 
         # Use injected env_getter for testability
         _env_getter = env_getter or os.getenv
-        self.base_url = base_url or _env_getter("OLLAMA_BASE_URL", "http://localhost:11434")
+        raw_url = base_url or _env_getter("OLLAMA_BASE_URL", "http://localhost:11434")
+        self.base_url = raw_url.rstrip("/")
+
         self._session = session
         self._model_cache: Optional[List[str]] = None
 
@@ -52,18 +55,16 @@ class OllamaProvider(Provider):
     ) -> ProviderResponse:
         """
         Get completion from Ollama API.
-
-        Args:
-            prompt: Input prompt text
-            model: Model identifier
-            **kwargs: Additional parameters
-
-        Returns:
-            ProviderResponse containing the completion result
         """
-        # Check if model is available
-        available_models = await self.list_models()
-        if model not in available_models:
+        # Step 1: Validate configuration
+        valid, error = self._validate_configuration()
+        if not valid:
+            return ProviderResponse(
+                output="", output_tokens=0, success=False, error_message=error
+            )
+
+        # Step 2: Check if model is available
+        if not self.is_model_available(model):
             return ProviderResponse(
                 output="",
                 output_tokens=0,
@@ -78,285 +79,195 @@ class OllamaProvider(Provider):
             **kwargs
         }
 
+        # Step 3: Make API request
+        status, data, error = await self._make_request(
+            "POST", "/api/generate", json_data=payload
+        )
+
+        # Step 4: Handle errors
+        if error or status >= 400:
+            return self._map_error_response(status, data, error, model)
+
+        # Step 5: Transform successful response
+        return await self._transform_api_response(data, model)
+
+    async def _make_request(
+        self,
+        method: str,
+        endpoint: str,
+        json_data: Optional[Dict] = None,
+        timeout_override: Optional[int] = None,
+    ) -> tuple[int, Optional[Dict], Optional[str]]:
+        """Make authenticated HTTP request to Ollama API."""
+        url = f"{self.base_url}{endpoint}"
+        timeout = timeout_override or self.timeout
+
+        headers = {
+            "User-Agent": f"Parallamr/{__version__} (https://github.com/parallamr/parallamr)",
+            "Content-Type": "application/json"
+        }
+
         try:
-            # Use injected session if available, otherwise create temporary session
             if self._session:
-                async with self._session.post(
-                    f"{self.base_url}/api/generate",
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=self.timeout)
+                async with self._session.request(
+                    method,
+                    url,
+                    json=json_data,
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=timeout),
                 ) as response:
-                    if response.status == 404:
-                        return ProviderResponse(
-                            output="",
-                            output_tokens=0,
-                            success=False,
-                            error_message=f"Model {model} not found on Ollama server"
-                        )
-
-                    response.raise_for_status()
-                    data = await response.json()
-
-                    output = data.get("response", "")
-
-                    # Ollama doesn't always provide token counts, so we estimate
-                    output_tokens = estimate_tokens(output)
-
-                    # Get context window for this model
-                    context_window = await self.get_context_window(model)
-
-                    # Check for any errors in the response
-                    error_message = None
-                    if data.get("error"):
-                        error_message = data["error"]
-
-                    return ProviderResponse(
-                        output=output,
-                        output_tokens=output_tokens,
-                        success=not bool(error_message),
-                        error_message=error_message,
-                        context_window=context_window
-                    )
+                    return await self._process_response(response)
             else:
-                # No injected session - use temporary session (backward compatibility)
-                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
-                    async with session.post(
-                        f"{self.base_url}/api/generate",
-                        json=payload
+                async with aiohttp.ClientSession(
+                    timeout=aiohttp.ClientTimeout(total=timeout)
+                ) as session:
+                    async with session.request(
+                        method, url, json=json_data, headers=headers
                     ) as response:
-                        if response.status == 404:
-                            return ProviderResponse(
-                                output="",
-                                output_tokens=0,
-                                success=False,
-                                error_message=f"Model {model} not found on Ollama server"
-                            )
-
-                        response.raise_for_status()
-                        data = await response.json()
-
-                        output = data.get("response", "")
-
-                        # Ollama doesn't always provide token counts, so we estimate
-                        output_tokens = estimate_tokens(output)
-
-                        # Get context window for this model
-                        context_window = await self.get_context_window(model)
-
-                        # Check for any errors in the response
-                        error_message = None
-                        if data.get("error"):
-                            error_message = data["error"]
-
-                        return ProviderResponse(
-                            output=output,
-                            output_tokens=output_tokens,
-                            success=not bool(error_message),
-                            error_message=error_message,
-                            context_window=context_window
-                        )
+                        return await self._process_response(response)
 
         except asyncio.TimeoutError:
-            return ProviderResponse(
-                output="",
-                output_tokens=0,
-                success=False,
-                error_message=f"Request timeout after {self.timeout} seconds"
-            )
+            return 0, None, f"Request timeout after {timeout} seconds"
         except aiohttp.ClientConnectorError:
-            return ProviderResponse(
-                output="",
-                output_tokens=0,
-                success=False,
-                error_message=f"Cannot connect to Ollama server at {self.base_url}"
-            )
+            return 0, None, f"Cannot connect to Ollama server at {self.base_url}"
         except aiohttp.ClientError as e:
+            return 0, None, f"Network error: {str(e)}"
+        except Exception as e:
+            return 0, None, f"Unexpected error: {str(e)}"
+
+    async def _process_response(
+        self, response: aiohttp.ClientResponse
+    ) -> tuple[int, Optional[Dict], Optional[str]]:
+        """Process HTTP response and extract data."""
+        status = response.status
+
+        try:
+            data = await response.json()
+        except Exception:
+            try:
+                text = await response.text()
+                return status, None, f"Invalid JSON response: {text[:200]}"
+            except Exception:
+                return status, None, "Could not read response body"
+
+        if isinstance(data, dict) and "error" in data:
+            return status, data, data["error"]
+
+        if isinstance(data, dict) and "message" in data and status >= 400:
+            return status, data, data["message"]
+
+        if status == 200:
+            return status, data, None
+
+        return status, data, f"HTTP {status} error"
+
+    def _map_error_response(
+        self, status: int, error_data: Optional[Dict], error_msg: Optional[str], model: str
+    ) -> ProviderResponse:
+        """Map API errors to ProviderResponse."""
+        if status == 404:
+            message = f"Model {model} not found on Ollama server"
+        elif status == 400:
+            message = f"Invalid request to Ollama: {error_msg}"
+        elif status >= 500:
+            message = f"Ollama server error: {error_msg}"
+        else:
+            message = error_msg or f"HTTP {status} error"
+
+        return ProviderResponse(
+            output="", output_tokens=0, success=False, error_message=message
+        )
+
+    async def _transform_api_response(
+        self, data: Dict[str, Any], model: str
+    ) -> ProviderResponse:
+        """Transform Ollama API response to ProviderResponse."""
+        try:
+            output = data.get("response", "")
+            output_tokens = estimate_tokens(output)
+            context_window = await self.get_context_window(model)
+
             return ProviderResponse(
-                output="",
-                output_tokens=0,
-                success=False,
-                error_message=f"Network error: {str(e)}"
+                output=output,
+                output_tokens=output_tokens,
+                success=True,
+                context_window=context_window
             )
         except Exception as e:
             return ProviderResponse(
                 output="",
                 output_tokens=0,
                 success=False,
-                error_message=f"Unexpected error: {str(e)}"
+                error_message=f"Malformed API response: {str(e)}"
             )
 
     async def get_context_window(self, model: str) -> Optional[int]:
-        """
-        Get model's context window size from Ollama API.
-
-        Args:
-            model: Model identifier
-
-        Returns:
-            Context window size in tokens, or None if unknown
-        """
+        """Get model's context window size from Ollama API."""
         try:
-            # Use injected session if available, otherwise create temporary session
-            if self._session:
-                async with self._session.post(
-                    f"{self.base_url}/api/show",
-                    json={"name": model},
-                    timeout=aiohttp.ClientTimeout(total=30)
-                ) as response:
-                    if response.status != 200:
-                        return None
+            status, data, error = await self._make_request(
+                "POST", "/api/show", json_data={"name": model}, timeout_override=30
+            )
 
-                    data = await response.json()
+            if status != 200 or not data:
+                return None
 
-                    # Extract context window from model_info
-                    # Ollama provides this in model_info with architecture-specific keys
-                    model_info = data.get("model_info", {})
+            model_info = data.get("model_info", {})
+            for key in ["llama.context_length", "context_length", "context_window"]:
+                if key in model_info:
+                    return model_info[key]
 
-                    # Check for llama.context_length (used by Llama models)
-                    if "llama.context_length" in model_info:
-                        return model_info["llama.context_length"]
+            for key, value in model_info.items():
+                if "context_length" in key:
+                    return value
 
-                    # Fallback: check for other common context length keys
-                    for key in model_info:
-                        if "context_length" in key or "context_window" in key:
-                            return model_info[key]
-
-                    return None
-            else:
-                # No injected session - use temporary session
-                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
-                    async with session.post(
-                        f"{self.base_url}/api/show",
-                        json={"name": model}
-                    ) as response:
-                        if response.status != 200:
-                            return None
-
-                        data = await response.json()
-
-                        # Extract context window from model_info
-                        # Ollama provides this in model_info with architecture-specific keys
-                        model_info = data.get("model_info", {})
-
-                        # Check for llama.context_length (used by Llama models)
-                        if "llama.context_length" in model_info:
-                            return model_info["llama.context_length"]
-
-                        # Fallback: check for other common context length keys
-                        for key in model_info:
-                            if "context_length" in key or "context_window" in key:
-                                return model_info[key]
-
-                        return None
-
+            return None
         except Exception:
-            # If we can't get model info, return None
             return None
 
     async def list_models(self) -> list[str]:
-        """
-        List available models from Ollama API.
-
-        Returns:
-            List of model identifiers
-        """
+        """List available models from Ollama API."""
         if self._model_cache is not None:
             return self._model_cache
 
-        try:
-            # Use injected session if available, otherwise create temporary session
-            if self._session:
-                async with self._session.get(
-                    f"{self.base_url}/api/tags",
-                    timeout=aiohttp.ClientTimeout(total=30)
-                ) as response:
-                    response.raise_for_status()
-                    data = await response.json()
+        status, data, error = await self._make_request(
+            "GET", "/api/tags", timeout_override=30
+        )
 
-                    models = []
-                    for model_info in data.get("models", []):
-                        model_name = model_info.get("name", "")
-                        if model_name:
-                            # Keep full model name including tag (e.g., "llama3.1:latest")
-                            models.append(model_name)
+        if status == 200 and data:
+            models = []
+            for model_info in data.get("models", []):
+                model_name = model_info.get("name", "")
+                if model_name:
+                    models.append(model_name)
 
-                    self._model_cache = models
-                    return models
-            else:
-                # No injected session - use temporary session
-                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
-                    async with session.get(f"{self.base_url}/api/tags") as response:
-                        response.raise_for_status()
-                        data = await response.json()
+            self._model_cache = models
+            return models
 
-                        models = []
-                        for model_info in data.get("models", []):
-                            model_name = model_info.get("name", "")
-                            if model_name:
-                                # Keep full model name including tag (e.g., "llama3.1:latest")
-                                models.append(model_name)
-
-                        self._model_cache = models
-                        return models
-
-        except Exception:
-            # If we can't fetch models, return empty list
-            return []
+        return []
 
     def is_model_available(self, model: str) -> bool:
-        """
-        Check if a model is available (synchronous check using cache).
-
-        Args:
-            model: Model identifier
-
-        Returns:
-            True if model is available, False otherwise
-        """
-        # For synchronous check, we rely on cached data
-        # If cache is empty, we assume the model might be available
+        """Check if a model is available (synchronous check using cache)."""
         if self._model_cache is None:
-            return True  # Optimistic - will be validated in get_completion
+            return True  # Optimistic
 
         return model in self._model_cache
 
     async def pull_model(self, model: str) -> bool:
-        """
-        Pull/download a model to the Ollama server.
+        """Pull/download a model to the Ollama server."""
+        status, data, error = await self._make_request(
+            "POST", "/api/pull", json_data={"name": model}, timeout_override=600
+        )
 
-        Args:
-            model: Model identifier to pull
+        if status == 200:
+            self._model_cache = None  # Clear cache
+            return True
 
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            # Use injected session if available, otherwise create temporary session
-            if self._session:
-                async with self._session.post(
-                    f"{self.base_url}/api/pull",
-                    json={"name": model},
-                    timeout=aiohttp.ClientTimeout(total=600)
-                ) as response:
-                    response.raise_for_status()
+        return False
 
-                    # Clear cache so it will be refreshed
-                    self._model_cache = None
-
-                    return True
-            else:
-                # No injected session - use temporary session
-                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=600)) as session:
-                    async with session.post(
-                        f"{self.base_url}/api/pull",
-                        json={"name": model}
-                    ) as response:
-                        response.raise_for_status()
-
-                        # Clear cache so it will be refreshed
-                        self._model_cache = None
-
-                        return True
-
-        except Exception:
-            return False
+    def _validate_configuration(self) -> tuple[bool, Optional[str]]:
+        """Validate provider configuration."""
+        if not self.base_url:
+            return False, "Ollama base URL not provided."
+        if not (self.base_url.startswith("http://") or self.base_url.startswith("https://")):
+            return False, f"Invalid Ollama base URL: {self.base_url}"
+        return True, None
